@@ -1,1 +1,6 @@
-# Add file you want to ignore here
+.env
+.venv/
+__pycache__/
+*.pyc
+ingestion.log
+.DS_Store

@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "▶ Run Pipeline (Live Snowflake + Aura)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/ingestion/pipeline.py",
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "▶ Run Pipeline (Mock Mode — no Snowflake needed)",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/ingestion/pipeline.py",
+            "args": ["--mock"],
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        }
+    ]
+}
