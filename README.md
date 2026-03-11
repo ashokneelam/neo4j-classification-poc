@@ -27,6 +27,8 @@ neo4j-classification-poc/
 │   ├── demo_neo4j.cypher               # Live demo queries for Neo4j Browser
 │   ├── demo-dashboard.html             # Interactive demo UI (open in browser)
 │   ├── setup_google_sheet.gs           # Google Apps Script to build demo spreadsheet
+│   ├── tag_sync.py                     # Incremental tag sync (no data nodes touched)
+│   ├── sync_task.sql                   # Snowflake Task for detecting tag drift
 │   └── .env.example                    # Environment variable template
 ├── .vscode/
 │   ├── settings.json                   # Python + Cypher editor config
@@ -84,6 +86,34 @@ python snowflake-neo4j-security/pipeline.py --mock
 ### 5. Explore in Neo4j Browser
 
 Open Neo4j Browser and run queries from `snowflake-neo4j-security/01_access_control_queries.cypher`.
+
+### 6. Keep Tags in Sync (Incremental)
+
+After the initial pipeline run, use `tag_sync.py` to propagate any tag changes
+from Snowflake to Neo4j without re-ingesting data.
+
+```bash
+# Sync tags once (Snowflake connection required):
+python snowflake-neo4j-security/tag_sync.py
+
+# Dry-run — shows what would change, writes nothing:
+python snowflake-neo4j-security/tag_sync.py --dry-run
+
+# Continuous watch mode (re-syncs every 60 minutes):
+python snowflake-neo4j-security/tag_sync.py --watch 60
+```
+
+To automate syncing, set up a Snowflake Task that snapshots tag state and detects
+drift inside Snowflake, then schedule `tag_sync.py` externally (cron, GitHub
+Actions, Windows Task Scheduler) to push those changes to Neo4j:
+
+```bash
+# Cron: sync every hour
+0 * * * * cd /path/to/repo && python snowflake-neo4j-security/tag_sync.py >> logs/tag_sync.log 2>&1
+```
+
+See `sync_task.sql` for the full Snowflake Task + `TAG_CHANGE_LOG` setup and
+GitHub Actions workflow example.
 
 ---
 
