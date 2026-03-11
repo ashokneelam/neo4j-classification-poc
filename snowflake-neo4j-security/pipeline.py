@@ -21,7 +21,6 @@ Dependencies:
 import os
 import logging
 from datetime import datetime
-from typing import Optional
 from dotenv import load_dotenv
 
 import snowflake.connector
@@ -110,44 +109,50 @@ class SnowflakeExtractor:
         return pd.DataFrame(rows, columns=columns)
 
     def extract_column_metadata(self) -> pd.DataFrame:
-        """Extract all column metadata with tag values."""
+        """Extract all column metadata with tag values.
+        Uses TAG_REFERENCES_ALL_COLUMNS + pivot instead of SYSTEM$GET_TAG,
+        which does not accept dynamic column references in a SELECT statement.
+        """
         log.info("Extracting column metadata and tags from Snowflake...")
         sql = """
-        SELECT 
-            c.TABLE_NAME,
-            c.COLUMN_NAME,
+        SELECT
+            t.object_name                                                           AS table_name,
+            t.column_name,
             c.DATA_TYPE,
             c.IS_NULLABLE,
             c.ORDINAL_POSITION,
-            SYSTEM$GET_TAG(
-                'SECURITY_DEMO_DB.DEMO_SCHEMA.DATA_CLASSIFICATION',
-                c.TABLE_CATALOG || '.' || c.TABLE_SCHEMA || '.' || c.TABLE_NAME || '.' || c.COLUMN_NAME,
-                'COLUMN'
-            ) AS data_classification,
-            SYSTEM$GET_TAG(
-                'SECURITY_DEMO_DB.DEMO_SCHEMA.DATA_CATEGORY',
-                c.TABLE_CATALOG || '.' || c.TABLE_SCHEMA || '.' || c.TABLE_NAME || '.' || c.COLUMN_NAME,
-                'COLUMN'
-            ) AS data_category,
-            SYSTEM$GET_TAG(
-                'SECURITY_DEMO_DB.DEMO_SCHEMA.ENCRYPTION_REQUIRED',
-                c.TABLE_CATALOG || '.' || c.TABLE_SCHEMA || '.' || c.TABLE_NAME || '.' || c.COLUMN_NAME,
-                'COLUMN'
-            ) AS encryption_required,
-            SYSTEM$GET_TAG(
-                'SECURITY_DEMO_DB.DEMO_SCHEMA.RETENTION_POLICY',
-                c.TABLE_CATALOG || '.' || c.TABLE_SCHEMA || '.' || c.TABLE_NAME || '.' || c.COLUMN_NAME,
-                'COLUMN'
-            ) AS retention_policy,
-            SYSTEM$GET_TAG(
-                'SECURITY_DEMO_DB.DEMO_SCHEMA.DATA_OWNER',
-                c.TABLE_CATALOG || '.' || c.TABLE_SCHEMA || '.' || c.TABLE_NAME || '.' || c.COLUMN_NAME,
-                'COLUMN'
-            ) AS data_owner
-        FROM INFORMATION_SCHEMA.COLUMNS c
-        WHERE c.TABLE_SCHEMA = 'DEMO_SCHEMA'
-          AND c.TABLE_NAME IN ('CUSTOMERS','FINANCIAL_TRANSACTIONS','EMPLOYEES','PRODUCTS','AUDIT_LOGS')
-        ORDER BY c.TABLE_NAME, c.ORDINAL_POSITION
+            MAX(CASE WHEN t.tag_name = 'DATA_CLASSIFICATION'  THEN t.tag_value END) AS data_classification,
+            MAX(CASE WHEN t.tag_name = 'DATA_CATEGORY'        THEN t.tag_value END) AS data_category,
+            MAX(CASE WHEN t.tag_name = 'ENCRYPTION_REQUIRED'  THEN t.tag_value END) AS encryption_required,
+            MAX(CASE WHEN t.tag_name = 'RETENTION_POLICY'     THEN t.tag_value END) AS retention_policy,
+            MAX(CASE WHEN t.tag_name = 'DATA_OWNER'           THEN t.tag_value END) AS data_owner
+        FROM (
+            SELECT tag_name, tag_value, object_name, column_name
+            FROM TABLE(SECURITY_DEMO_DB.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
+                'SECURITY_DEMO_DB.DEMO_SCHEMA.CUSTOMERS', 'table'))
+            UNION ALL
+            SELECT tag_name, tag_value, object_name, column_name
+            FROM TABLE(SECURITY_DEMO_DB.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
+                'SECURITY_DEMO_DB.DEMO_SCHEMA.FINANCIAL_TRANSACTIONS', 'table'))
+            UNION ALL
+            SELECT tag_name, tag_value, object_name, column_name
+            FROM TABLE(SECURITY_DEMO_DB.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
+                'SECURITY_DEMO_DB.DEMO_SCHEMA.EMPLOYEES', 'table'))
+            UNION ALL
+            SELECT tag_name, tag_value, object_name, column_name
+            FROM TABLE(SECURITY_DEMO_DB.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
+                'SECURITY_DEMO_DB.DEMO_SCHEMA.PRODUCTS', 'table'))
+            UNION ALL
+            SELECT tag_name, tag_value, object_name, column_name
+            FROM TABLE(SECURITY_DEMO_DB.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS(
+                'SECURITY_DEMO_DB.DEMO_SCHEMA.AUDIT_LOGS', 'table'))
+        ) t
+        JOIN SECURITY_DEMO_DB.INFORMATION_SCHEMA.COLUMNS c
+            ON  c.TABLE_NAME   = t.object_name
+            AND c.COLUMN_NAME  = t.column_name
+            AND c.TABLE_SCHEMA = 'DEMO_SCHEMA'
+        GROUP BY t.object_name, t.column_name, c.DATA_TYPE, c.IS_NULLABLE, c.ORDINAL_POSITION
+        ORDER BY t.object_name, c.ORDINAL_POSITION
         """
         df = self.query(sql)
         log.info(f"✓ Extracted metadata for {len(df)} columns across {df['table_name'].nunique()} tables")
@@ -162,8 +167,7 @@ class SnowflakeExtractor:
 
     def extract_masking_policies(self) -> pd.DataFrame:
         """Extract masking policy references."""
-        tables = "','".join(TARGET_TABLES)
-        sql = f"""
+        sql = """
         SELECT 
             ref_entity_name AS table_name,
             ref_column_name AS column_name,
@@ -705,8 +709,11 @@ class Neo4jGraphBuilder:
             "SSN_MASKING_POLICY":     ["SECURITY_DEMO_DB.DEMO_SCHEMA.CUSTOMERS.SSN",
                                        "SECURITY_DEMO_DB.DEMO_SCHEMA.EMPLOYEES.SSN"],
             "EMAIL_MASKING_POLICY":   ["SECURITY_DEMO_DB.DEMO_SCHEMA.CUSTOMERS.EMAIL",
-                                       "SECURITY_DEMO_DB.DEMO_SCHEMA.EMPLOYEES.EMAIL"],
+                                       "SECURITY_DEMO_DB.DEMO_SCHEMA.EMPLOYEES.EMAIL",
+                                       "SECURITY_DEMO_DB.DEMO_SCHEMA.EMPLOYEES.PERSONAL_EMAIL",
+                                       "SECURITY_DEMO_DB.DEMO_SCHEMA.AUDIT_LOGS.USER_EMAIL"],
             "AMOUNT_MASKING_POLICY":  ["SECURITY_DEMO_DB.DEMO_SCHEMA.FINANCIAL_TRANSACTIONS.TRANSACTION_AMOUNT"],
+            "ACCOUNT_MASKING_POLICY": ["SECURITY_DEMO_DB.DEMO_SCHEMA.FINANCIAL_TRANSACTIONS.ACCOUNT_NUMBER"],
             "SALARY_MASKING_POLICY":  ["SECURITY_DEMO_DB.DEMO_SCHEMA.EMPLOYEES.SALARY",
                                        "SECURITY_DEMO_DB.DEMO_SCHEMA.EMPLOYEES.BONUS"],
             "IP_MASKING_POLICY":      ["SECURITY_DEMO_DB.DEMO_SCHEMA.FINANCIAL_TRANSACTIONS.IP_ADDRESS",

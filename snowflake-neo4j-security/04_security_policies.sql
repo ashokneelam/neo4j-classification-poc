@@ -20,6 +20,8 @@ USE ROLE SYSADMIN;
 --               ├── SECURITY_AUDITOR  (Read audit logs + metadata)
 --               └── PUBLIC_USER       (Public data only)
 
+USE ROLE SECURITYADMIN;
+
 CREATE ROLE IF NOT EXISTS DATA_GOVERNANCE_ADMIN COMMENT = 'Manages data classification policies and tags';
 CREATE ROLE IF NOT EXISTS DATA_ENGINEER         COMMENT = 'Full read access to all classified data';
 CREATE ROLE IF NOT EXISTS DATA_ANALYST          COMMENT = 'Read Internal + Public columns only';
@@ -61,6 +63,8 @@ GRANT USAGE ON SCHEMA DEMO_SCHEMA           TO ROLE PUBLIC_USER;
 -- =============================================================================
 
 -- MASKING POLICY: SSN - Show full for DATA_ENGINEER, partial for HR_MANAGER, masked for others
+USE ROLE SYSADMIN;
+
 CREATE OR REPLACE MASKING POLICY ssn_masking_policy AS (val STRING) RETURNS STRING ->
     CASE
         WHEN CURRENT_ROLE() IN ('DATA_ENGINEER', 'DATA_GOVERNANCE_ADMIN', 'ACCOUNTADMIN')

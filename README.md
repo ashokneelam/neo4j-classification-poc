@@ -12,21 +12,22 @@ A complete end-to-end project demonstrating:
 ## Project Structure
 
 ```
-snowflake-neo4j-security/
-├── snowflake/
-│   ├── 01_setup_tags.sql           # Create classification tags
-│   ├── 02_create_tables.sql        # 5 tables with 10 rows each
-│   ├── 03_apply_tags.sql           # Apply tags to all 62 columns
-│   ├── 04_security_policies.sql    # Roles, masking + row access policies
-│   └── 05_tag_extraction_queries.sql # ETL extraction queries
-├── ingestion/
-│   └── pipeline.py                 # Snowflake → Neo4j Python pipeline
-├── neo4j/
-│   └── 01_access_control_queries.cypher  # All demo Cypher queries
-├── docs/
-│   └── demo-dashboard.html         # Interactive demo UI
+neo4j-classification-poc/
+├── snowflake-neo4j-security/
+│   ├── 01_setup_tags.sql               # Create classification tags
+│   ├── 02_create_tables.sql            # 5 tables with 10 rows each
+│   ├── 03_apply_tags.sql               # Apply tags to all 62 columns
+│   ├── 04_security_policies.sql        # Roles, masking + row access policies
+│   ├── 05_tag_extraction_queries.sql   # ETL extraction queries
+│   ├── pipeline.py                     # Snowflake → Neo4j Python pipeline
+│   ├── 01_access_control_queries.cypher  # All demo Cypher queries
+│   ├── demo-dashboard.html             # Interactive demo UI
+│   └── .env.example                    # Environment variable template
+├── .vscode/
+│   ├── settings.json                   # Python + Cypher editor config
+│   └── launch.json                     # VS Code run configurations
 ├── requirements.txt
-├── .env.example
+├── .gitignore
 └── README.md
 ```
 
@@ -40,22 +41,22 @@ Run the SQL scripts in order in your Snowflake worksheet:
 
 ```sql
 -- Step 1: Create tags
-@snowflake/01_setup_tags.sql
+@snowflake-neo4j-security/01_setup_tags.sql
 
 -- Step 2: Create tables with dummy data
-@snowflake/02_create_tables.sql
+@snowflake-neo4j-security/02_create_tables.sql
 
 -- Step 3: Apply classification tags to columns
-@snowflake/03_apply_tags.sql
+@snowflake-neo4j-security/03_apply_tags.sql
 
 -- Step 4: Create roles, masking policies, row access policies
-@snowflake/04_security_policies.sql
+@snowflake-neo4j-security/04_security_policies.sql
 ```
 
 ### 2. Configure Environment
 
 ```bash
-cp .env.example .env
+cp snowflake-neo4j-security/.env.example .env
 # Edit .env with your Snowflake and Neo4j credentials
 ```
 
@@ -69,15 +70,15 @@ pip install -r requirements.txt
 
 ```bash
 # With live Snowflake connection:
-python ingestion/pipeline.py
+python snowflake-neo4j-security/pipeline.py
 
 # Without Snowflake (mock data mode):
-python ingestion/pipeline.py --mock
+python snowflake-neo4j-security/pipeline.py --mock
 ```
 
 ### 5. Explore in Neo4j Browser
 
-Open Neo4j Browser and run queries from `neo4j/01_access_control_queries.cypher`.
+Open Neo4j Browser and run queries from `snowflake-neo4j-security/01_access_control_queries.cypher`.
 
 ---
 

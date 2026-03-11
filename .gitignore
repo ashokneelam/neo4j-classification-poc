@@ -1,6 +1,28 @@
+# Environment / secrets
 .env
+*.env
+.env.*
+!.env.example
+
+# Python
 .venv/
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Logs
+*.log
 ingestion.log
+
+# Keys / certs
+*.key
+*.pem
+*.p12
+*.pfx
+
+# OS
 .DS_Store
+Thumbs.db
