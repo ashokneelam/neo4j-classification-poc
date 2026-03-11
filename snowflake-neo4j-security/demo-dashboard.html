@@ -5,23 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Data Security Demo — Snowflake + Neo4j</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
 
   :root {
-    --bg:         #0a0e1a;
-    --surface:    #111827;
-    --surface2:   #1a2234;
-    --border:     #1e2d45;
-    --accent:     #00d4ff;
-    --accent2:    #7c3aed;
-    --restricted: #ef4444;
-    --pii:        #f97316;
-    --internal:   #eab308;
-    --public:     #22c55e;
-    --text:       #e2e8f0;
-    --muted:      #64748b;
-    --mono:       'Space Mono', monospace;
-    --sans:       'DM Sans', sans-serif;
+    --bg:         #F0F4F8;
+    --surface:    #FFFFFF;
+    --surface2:   #F8FAFC;
+    --border:     #E2E8F0;
+    --accent:     #0369A1;
+    --accent2:    #6D28D9;
+    --restricted: #DC2626;
+    --pii:        #C2410C;
+    --internal:   #92400E;
+    --public:     #166534;
+    --text:       #0F172A;
+    --muted:      #64748B;
+    --mono:       'JetBrains Mono', monospace;
+    --sans:       'Inter', sans-serif;
+    --shadow-sm:  0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow:     0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.05);
+    --shadow-lg:  0 8px 24px rgba(0,0,0,0.10), 0 4px 8px rgba(0,0,0,0.06);
   }
 
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -29,208 +32,238 @@
 
   /* HEADER */
   header {
-    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
-    border-bottom: 1px solid var(--border);
+    background: linear-gradient(135deg, #0F2744 0%, #1E3A5F 60%, #0C4A6E 100%);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
     padding: 0 2rem;
     display: flex; align-items: center; justify-content: space-between;
-    height: 64px;
+    height: 60px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
   }
-  .logo { display:flex; align-items:center; gap:12px; }
+  .logo { display:flex; align-items:center; gap:14px; }
   .logo-icon {
-    width:36px; height:36px; background:linear-gradient(135deg, var(--accent), var(--accent2));
+    width:34px; height:34px;
+    background: linear-gradient(135deg, #38BDF8, #818CF8);
     border-radius:8px; display:flex; align-items:center; justify-content:center;
-    font-size:16px;
+    font-size:16px; box-shadow: 0 2px 6px rgba(56,189,248,0.3);
   }
-  .logo-text { font-family:var(--mono); font-size:13px; font-weight:700; color:var(--accent); letter-spacing:1px; }
-  .logo-sub { font-size:11px; color:var(--muted); }
+  .logo-text { font-family:var(--mono); font-size:12px; font-weight:700; color:#F0F9FF; letter-spacing:1.5px; }
+  .logo-sub { font-size:11px; color:#93C5FD; margin-top:1px; }
   .header-badge {
-    font-family:var(--mono); font-size:11px; color:var(--accent);
-    border:1px solid var(--accent); border-radius:4px; padding:3px 10px; letter-spacing:1px;
+    font-family:var(--mono); font-size:10px; color:#BAE6FD;
+    border:1px solid rgba(186,230,253,0.4); border-radius:20px;
+    padding:4px 12px; letter-spacing:1px; background:rgba(255,255,255,0.06);
   }
 
   /* LAYOUT */
-  .app { display:grid; grid-template-columns:280px 1fr; height:calc(100vh - 64px); }
+  .app { display:grid; grid-template-columns:260px 1fr; height:calc(100vh - 60px); }
 
   /* SIDEBAR */
   .sidebar {
     background:var(--surface); border-right:1px solid var(--border);
-    overflow-y:auto; padding:1.5rem 0;
+    overflow-y:auto; padding:1.25rem 0;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.04);
   }
-  .sidebar-section { padding:0 1.25rem; margin-bottom:1.5rem; }
+  .sidebar-section { padding:0 1rem; margin-bottom:1.5rem; }
   .sidebar-label {
-    font-family:var(--mono); font-size:10px; color:var(--muted);
-    letter-spacing:2px; text-transform:uppercase; margin-bottom:0.75rem;
-    padding-bottom:0.5rem; border-bottom:1px solid var(--border);
+    font-family:var(--mono); font-size:9px; color:#94A3B8;
+    letter-spacing:2px; text-transform:uppercase; margin-bottom:0.6rem;
+    padding-bottom:0.4rem; border-bottom:1px solid var(--border);
+    font-weight:700;
   }
 
   /* ROLE SELECTOR */
   .role-btn {
     display:flex; align-items:center; gap:10px;
-    width:100%; padding:10px 12px; margin-bottom:4px;
+    width:100%; padding:8px 10px; margin-bottom:3px;
     background:transparent; border:1px solid transparent;
     border-radius:8px; cursor:pointer; color:var(--text);
     font-family:var(--sans); font-size:13px; text-align:left;
-    transition:all 0.15s;
+    transition:all 0.15s; font-weight:500;
   }
   .role-btn:hover { background:var(--surface2); border-color:var(--border); }
-  .role-btn.active { background:var(--surface2); border-color:var(--accent); color:var(--accent); }
+  .role-btn.active { background:#EFF6FF; border-color:#BFDBFE; color:var(--accent); }
   .role-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-  .role-level { font-family:var(--mono); font-size:10px; color:var(--muted); margin-left:auto; }
+  .role-level { font-family:var(--mono); font-size:10px; color:#94A3B8; margin-left:auto; }
 
   /* CLASSIFICATION LEGEND */
-  .cls-item { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:12px; }
+  .cls-item { display:flex; align-items:center; gap:8px; margin-bottom:7px; font-size:12px; }
   .cls-chip {
-    padding:2px 8px; border-radius:4px; font-family:var(--mono); font-size:10px;
-    font-weight:700; letter-spacing:0.5px;
+    padding:2px 9px; border-radius:20px; font-family:var(--mono); font-size:10px;
+    font-weight:700; letter-spacing:0.3px;
   }
-  .chip-restricted { background:rgba(239,68,68,0.2); color:var(--restricted); border:1px solid rgba(239,68,68,0.4); }
-  .chip-pii        { background:rgba(249,115,22,0.2); color:var(--pii);        border:1px solid rgba(249,115,22,0.4); }
-  .chip-internal   { background:rgba(234,179,8,0.2);  color:var(--internal);   border:1px solid rgba(234,179,8,0.4);  }
-  .chip-public     { background:rgba(34,197,94,0.2);  color:var(--public);     border:1px solid rgba(34,197,94,0.4);  }
+  .chip-restricted { background:#FEE2E2; color:#991B1B; border:1px solid #FECACA; }
+  .chip-pii        { background:#FFEDD5; color:#9A3412; border:1px solid #FED7AA; }
+  .chip-internal   { background:#FEF3C7; color:#78350F; border:1px solid #FDE68A; }
+  .chip-public     { background:#DCFCE7; color:#14532D; border:1px solid #BBF7D0; }
 
   /* MAIN CONTENT */
   .main { overflow-y:auto; background:var(--bg); }
 
   /* TABS */
   .tabs {
-    display:flex; gap:0; border-bottom:1px solid var(--border);
+    display:flex; gap:0; border-bottom:2px solid var(--border);
     background:var(--surface); padding:0 2rem; position:sticky; top:0; z-index:10;
+    box-shadow: var(--shadow-sm);
   }
   .tab {
-    padding:14px 20px; font-size:13px; font-family:var(--mono); color:var(--muted);
-    cursor:pointer; border-bottom:2px solid transparent; transition:all 0.15s; white-space:nowrap;
+    padding:13px 18px; font-size:13px; font-family:var(--sans); font-weight:500;
+    color:var(--muted); cursor:pointer; border-bottom:2px solid transparent;
+    margin-bottom:-2px; transition:all 0.15s; white-space:nowrap;
   }
   .tab:hover { color:var(--text); }
-  .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab.active { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
 
   /* CONTENT PANELS */
-  .panel { display:none; padding:2rem; }
+  .panel { display:none; padding:1.75rem 2rem; }
   .panel.active { display:block; }
 
   /* CARDS */
   .card {
     background:var(--surface); border:1px solid var(--border);
-    border-radius:12px; padding:1.5rem; margin-bottom:1.5rem;
+    border-radius:12px; padding:1.5rem; margin-bottom:1.25rem;
+    box-shadow: var(--shadow-sm);
   }
   .card-title {
-    font-family:var(--mono); font-size:12px; color:var(--accent);
-    letter-spacing:1px; text-transform:uppercase; margin-bottom:1rem;
+    font-family:var(--sans); font-size:13px; font-weight:600; color:var(--text);
+    letter-spacing:0; margin-bottom:1rem;
     display:flex; align-items:center; gap:8px;
   }
-  .card-title::before { content:''; width:3px; height:14px; background:var(--accent); border-radius:2px; }
+  .card-title::before {
+    content:''; width:3px; height:14px;
+    background: linear-gradient(180deg, #38BDF8, #818CF8);
+    border-radius:2px;
+  }
 
   /* ACCESS MATRIX */
   .matrix-grid {
-    display:grid; gap:1px; background:var(--border); border-radius:8px; overflow:hidden;
-    font-size:12px;
+    border-radius:10px; overflow:hidden; border:1px solid var(--border);
+    font-size:12px; box-shadow: var(--shadow-sm);
   }
   .matrix-header {
-    display:grid; grid-template-columns:180px repeat(4, 1fr);
-    background:var(--surface2); font-family:var(--mono); font-size:11px;
+    display:grid; grid-template-columns:190px repeat(4, 1fr);
+    background:#F8FAFC; font-family:var(--mono); font-size:10px;
+    border-bottom:2px solid var(--border);
   }
   .matrix-row {
-    display:grid; grid-template-columns:180px repeat(4, 1fr);
+    display:grid; grid-template-columns:190px repeat(4, 1fr);
     background:var(--surface); transition:background 0.1s;
+    border-bottom:1px solid var(--border);
   }
-  .matrix-row:hover { background:var(--surface2); }
-  .matrix-row.highlighted { background:rgba(0,212,255,0.07); }
-  .matrix-cell { padding:10px 14px; border-right:1px solid var(--border); }
+  .matrix-row:last-child { border-bottom:none; }
+  .matrix-row:hover { background:#F8FAFC; }
+  .matrix-row.highlighted { background:#EFF6FF; }
+  .matrix-cell { padding:11px 14px; border-right:1px solid var(--border); }
   .matrix-cell:last-child { border-right:none; }
-  .mh { color:var(--muted); font-weight:700; }
-  .allow  { color:var(--public);     font-family:var(--mono); font-size:11px; }
-  .deny   { color:var(--restricted); font-family:var(--mono); font-size:11px; }
-  .partial{ color:var(--internal);   font-family:var(--mono); font-size:11px; }
+  .mh { color:var(--muted); font-weight:700; font-size:10px; padding-top:10px; padding-bottom:10px; }
+  .allow  { color:#15803D; font-family:var(--mono); font-size:11px; font-weight:600; }
+  .deny   { color:#DC2626; font-family:var(--mono); font-size:11px; font-weight:600; }
+  .partial{ color:#D97706; font-family:var(--mono); font-size:11px; font-weight:600; }
 
   /* DATA TABLE */
   .data-table { width:100%; border-collapse:collapse; font-size:12px; }
   .data-table th {
-    background:var(--surface2); font-family:var(--mono); font-size:10px;
-    color:var(--muted); text-transform:uppercase; letter-spacing:1px;
-    padding:10px 12px; text-align:left; border-bottom:1px solid var(--border);
+    background:#F8FAFC; font-family:var(--mono); font-size:10px;
+    color:#64748B; text-transform:uppercase; letter-spacing:0.8px; font-weight:700;
+    padding:10px 12px; text-align:left; border-bottom:2px solid var(--border);
   }
   .data-table td {
     padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:middle;
+    color:var(--text);
   }
   .data-table tr:last-child td { border-bottom:none; }
-  .data-table tr:hover td { background:var(--surface2); }
+  .data-table tr:hover td { background:#F8FAFC; }
   .masked {
-    font-family:var(--mono); font-size:11px;
-    color:var(--muted); letter-spacing:2px; opacity:0.6;
+    font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:2px; opacity:0.7;
   }
   .masked-badge {
     display:inline-flex; align-items:center; gap:4px;
-    background:rgba(100,116,139,0.15); border:1px solid rgba(100,116,139,0.3);
-    border-radius:4px; padding:2px 7px; font-family:var(--mono); font-size:10px; color:var(--muted);
+    background:#F1F5F9; border:1px solid #CBD5E1;
+    border-radius:20px; padding:2px 8px; font-family:var(--mono);
+    font-size:9px; color:#94A3B8; font-weight:600;
   }
 
   /* CYPHER BLOCK */
   .cypher-block {
-    background:#0d1117; border:1px solid var(--border); border-radius:8px;
-    padding:1.25rem; font-family:var(--mono); font-size:12px; line-height:1.8;
-    overflow-x:auto; position:relative;
+    background:#0F172A; border:1px solid #1E293B; border-radius:10px;
+    padding:1.25rem; font-family:var(--mono); font-size:12px; line-height:1.9;
+    overflow-x:auto; position:relative; box-shadow: var(--shadow-sm);
   }
-  .cy-keyword  { color:#ff7b72; }
-  .cy-function { color:#d2a8ff; }
-  .cy-string   { color:#a5d6ff; }
-  .cy-comment  { color:#8b949e; font-style:italic; }
-  .cy-var      { color:#ffa657; }
-  .cy-label    { color:#7ee787; }
-  .cy-prop     { color:#e3b341; }
-  .cy-rel      { color:#79c0ff; }
+  .cy-keyword  { color:#F472B6; }
+  .cy-function { color:#A78BFA; }
+  .cy-string   { color:#6EE7B7; }
+  .cy-comment  { color:#475569; font-style:italic; }
+  .cy-var      { color:#FCD34D; }
+  .cy-label    { color:#34D399; }
+  .cy-prop     { color:#93C5FD; }
+  .cy-rel      { color:#67E8F9; }
 
   /* STAT CARDS */
-  .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.5rem; }
+  .stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-bottom:1.25rem; }
   .stat-card {
     background:var(--surface); border:1px solid var(--border); border-radius:12px;
-    padding:1.25rem; text-align:center;
+    padding:1.25rem; text-align:center; box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.15s, transform 0.15s;
   }
-  .stat-num { font-family:var(--mono); font-size:28px; font-weight:700; color:var(--accent); }
-  .stat-label { font-size:12px; color:var(--muted); margin-top:4px; }
+  .stat-card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+  .stat-num { font-family:var(--mono); font-size:30px; font-weight:700; color:var(--accent); }
+  .stat-label { font-size:12px; color:var(--muted); margin-top:4px; font-weight:500; }
 
   /* ACCESS RESULT BANNER */
   .access-banner {
-    border-radius:8px; padding:12px 16px; font-size:13px;
+    border-radius:10px; padding:12px 16px; font-size:13px;
     display:flex; align-items:center; gap:10px; margin-bottom:1rem;
+    font-weight:500;
   }
-  .banner-granted { background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3); color:var(--public); }
-  .banner-denied  { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:var(--restricted); }
-  .banner-partial { background:rgba(234,179,8,0.1);  border:1px solid rgba(234,179,8,0.3);  color:var(--internal); }
+  .banner-granted { background:#F0FDF4; border:1px solid #86EFAC; color:#15803D; }
+  .banner-denied  { background:#FEF2F2; border:1px solid #FCA5A5; color:#DC2626; }
+  .banner-partial { background:#FFFBEB; border:1px solid #FDE68A; color:#D97706; }
 
   /* POLICY NODES */
   .policy-item {
     display:flex; align-items:flex-start; gap:12px;
-    padding:12px; border-radius:8px; border:1px solid var(--border);
+    padding:14px; border-radius:10px; border:1px solid var(--border);
     margin-bottom:8px; background:var(--surface2);
+    transition: box-shadow 0.15s;
   }
+  .policy-item:hover { box-shadow: var(--shadow-sm); }
   .policy-icon {
-    width:32px; height:32px; border-radius:6px; display:flex; align-items:center;
-    justify-content:center; font-size:14px; flex-shrink:0; margin-top:1px;
+    width:34px; height:34px; border-radius:8px; display:flex; align-items:center;
+    justify-content:center; font-size:16px; flex-shrink:0; margin-top:1px;
   }
-  .policy-name  { font-family:var(--mono); font-size:12px; color:var(--accent); }
+  .policy-name  { font-family:var(--mono); font-size:12px; color:#0F172A; font-weight:700; }
   .policy-desc  { font-size:12px; color:var(--muted); margin-top:3px; }
-  .policy-type  { font-family:var(--mono); font-size:10px; padding:2px 6px; border-radius:4px; margin-top:5px; display:inline-block; }
-  .type-masking { background:rgba(124,58,237,0.2); color:var(--accent2); border:1px solid rgba(124,58,237,0.4); }
-  .type-row     { background:rgba(0,212,255,0.15);  color:var(--accent);  border:1px solid rgba(0,212,255,0.3);  }
+  .policy-type  {
+    font-family:var(--mono); font-size:9px; padding:2px 8px; border-radius:20px;
+    margin-top:6px; display:inline-block; font-weight:700;
+  }
+  .type-masking { background:#EDE9FE; color:#6D28D9; border:1px solid #C4B5FD; }
+  .type-row     { background:#DBEAFE; color:#1D4ED8; border:1px solid #93C5FD; }
 
   /* GRAPH VIZ */
   .graph-canvas {
-    background:var(--surface2); border:1px solid var(--border); border-radius:12px;
+    background:#F8FAFC; border:1px solid var(--border); border-radius:12px;
     height:320px; position:relative; overflow:hidden; margin-bottom:1rem;
+    box-shadow: var(--shadow-sm) inset;
   }
   svg { width:100%; height:100%; }
 
   /* TOGGLE */
   .toggle-group { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:1rem; }
   .toggle-btn {
-    padding:6px 14px; border-radius:6px; font-size:12px; font-family:var(--mono);
-    cursor:pointer; border:1px solid var(--border); background:var(--surface2);
-    color:var(--muted); transition:all 0.15s;
+    padding:6px 14px; border-radius:20px; font-size:12px; font-family:var(--sans);
+    cursor:pointer; border:1px solid var(--border); background:var(--surface);
+    color:var(--muted); transition:all 0.15s; font-weight:500;
+    box-shadow: var(--shadow-sm);
   }
-  .toggle-btn.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:700; }
+  .toggle-btn:hover { border-color:#93C5FD; color:var(--accent); }
+  .toggle-btn.active {
+    background:var(--accent); color:#fff; border-color:var(--accent);
+    font-weight:600; box-shadow: 0 2px 8px rgba(3,105,161,0.3);
+  }
 
   /* NEO4J GRAPH */
   .node-circle { cursor:pointer; transition:all 0.2s; }
-  .node-circle:hover { filter:brightness(1.3); }
+  .node-circle:hover { filter:brightness(0.85); }
 
   /* Responsive tweaks */
   @media (max-width:900px) {
@@ -260,31 +293,31 @@
     <div class="sidebar-section">
       <div class="sidebar-label">Current Role</div>
       <button class="role-btn" data-role="DATA_GOVERNANCE_ADMIN" onclick="setRole(this)">
-        <div class="role-dot" style="background:#00d4ff"></div>
+        <div class="role-dot" style="background:#0369A1"></div>
         <span>Data Gov Admin</span><span class="role-level">L1</span>
       </button>
       <button class="role-btn" data-role="DATA_ENGINEER" onclick="setRole(this)">
-        <div class="role-dot" style="background:#7c3aed"></div>
+        <div class="role-dot" style="background:#6D28D9"></div>
         <span>Data Engineer</span><span class="role-level">L2</span>
       </button>
       <button class="role-btn" data-role="FINANCE_ANALYST" onclick="setRole(this)">
-        <div class="role-dot" style="background:#f97316"></div>
+        <div class="role-dot" style="background:#C2410C"></div>
         <span>Finance Analyst</span><span class="role-level">L3</span>
       </button>
       <button class="role-btn" data-role="HR_MANAGER" onclick="setRole(this)">
-        <div class="role-dot" style="background:#a855f7"></div>
+        <div class="role-dot" style="background:#7C3AED"></div>
         <span>HR Manager</span><span class="role-level">L3</span>
       </button>
       <button class="role-btn" data-role="SECURITY_AUDITOR" onclick="setRole(this)">
-        <div class="role-dot" style="background:#06b6d4"></div>
+        <div class="role-dot" style="background:#0891B2"></div>
         <span>Security Auditor</span><span class="role-level">L3</span>
       </button>
       <button class="role-btn active" data-role="DATA_ANALYST" onclick="setRole(this)">
-        <div class="role-dot" style="background:#eab308"></div>
+        <div class="role-dot" style="background:#D97706"></div>
         <span>Data Analyst</span><span class="role-level">L4</span>
       </button>
       <button class="role-btn" data-role="PUBLIC_USER" onclick="setRole(this)">
-        <div class="role-dot" style="background:#64748b"></div>
+        <div class="role-dot" style="background:#94A3B8"></div>
         <span>Public User</span><span class="role-level">L5</span>
       </button>
     </div>
@@ -312,17 +345,17 @@
     <div class="sidebar-section">
       <div class="sidebar-label">Pipeline Status</div>
       <div style="font-size:12px; color:var(--muted);">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <span>Snowflake Tables</span><span style="color:var(--public);">5 ✓</span>
+        <div style="display:flex;justify-content:space-between;margin-bottom:7px;">
+          <span>Snowflake Tables</span><span style="color:#16A34A;font-weight:600;">5 ✓</span>
         </div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <span>Tagged Columns</span><span style="color:var(--public);">62 ✓</span>
+        <div style="display:flex;justify-content:space-between;margin-bottom:7px;">
+          <span>Tagged Columns</span><span style="color:#16A34A;font-weight:600;">81 ✓</span>
         </div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <span>Neo4j Nodes</span><span style="color:var(--public);">120+ ✓</span>
+        <div style="display:flex;justify-content:space-between;margin-bottom:7px;">
+          <span>Neo4j Nodes</span><span style="color:#16A34A;font-weight:600;">138 ✓</span>
         </div>
         <div style="display:flex;justify-content:space-between;">
-          <span>Masking Policies</span><span style="color:var(--public);">6 ✓</span>
+          <span>Masking Policies</span><span style="color:#16A34A;font-weight:600;">6 ✓</span>
         </div>
       </div>
     </div>
@@ -343,38 +376,42 @@
     <div id="tab-overview" class="panel active">
       <div class="stats-row">
         <div class="stat-card">
-          <div class="stat-num">5</div><div class="stat-label">Snowflake Tables</div>
+          <div class="stat-num" style="color:#0369A1;">5</div>
+          <div class="stat-label">Snowflake Tables</div>
         </div>
         <div class="stat-card">
-          <div class="stat-num">62</div><div class="stat-label">Tagged Columns</div>
+          <div class="stat-num" style="color:#6D28D9;">81</div>
+          <div class="stat-label">Tagged Columns</div>
         </div>
         <div class="stat-card">
-          <div class="stat-num">7</div><div class="stat-label">Security Roles</div>
+          <div class="stat-num" style="color:#0891B2;">7</div>
+          <div class="stat-label">Security Roles</div>
         </div>
         <div class="stat-card">
-          <div class="stat-num">9</div><div class="stat-label">Policies Applied</div>
+          <div class="stat-num" style="color:#C2410C;">9</div>
+          <div class="stat-label">Policies Applied</div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-title">Architecture Flow</div>
-        <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:1rem;align-items:center;padding:1rem 0;">
-          <div style="text-align:center;padding:1rem;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
-            <div style="font-size:24px;margin-bottom:6px;">❄️</div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:4px;">SNOWFLAKE</div>
-            <div style="font-size:11px;color:var(--muted);">Tables + Tags<br>Masking Policies<br>Row Access Policies</div>
+        <div style="display:grid;grid-template-columns:1fr 40px 1fr 40px 1fr;gap:0.75rem;align-items:center;padding:0.5rem 0;">
+          <div style="text-align:center;padding:1.25rem;background:#EFF6FF;border-radius:12px;border:1px solid #BFDBFE;">
+            <div style="font-size:28px;margin-bottom:8px;">❄️</div>
+            <div style="font-family:var(--mono);font-size:11px;color:#1D4ED8;margin-bottom:6px;font-weight:700;letter-spacing:0.5px;">SNOWFLAKE</div>
+            <div style="font-size:11px;color:#64748B;line-height:1.6;">Tables + Column Tags<br>Masking Policies<br>Row Access Policies</div>
           </div>
-          <div style="text-align:center;color:var(--muted);font-size:20px;">→</div>
-          <div style="text-align:center;padding:1rem;background:var(--surface2);border-radius:10px;border:1px solid var(--accent2);">
-            <div style="font-size:24px;margin-bottom:6px;">🐍</div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--accent2);margin-bottom:4px;">PYTHON ETL</div>
-            <div style="font-size:11px;color:var(--muted);">Extract tags<br>Build graph model<br>Propagate metadata</div>
+          <div style="text-align:center;font-size:20px;color:#94A3B8;font-weight:300;">→</div>
+          <div style="text-align:center;padding:1.25rem;background:#F5F3FF;border-radius:12px;border:1px solid #DDD6FE;">
+            <div style="font-size:28px;margin-bottom:8px;">🐍</div>
+            <div style="font-family:var(--mono);font-size:11px;color:#6D28D9;margin-bottom:6px;font-weight:700;letter-spacing:0.5px;">PYTHON ETL</div>
+            <div style="font-size:11px;color:#64748B;line-height:1.6;">Extract tags via<br>TAG_REFERENCES_ALL_COLUMNS()<br>Build graph model</div>
           </div>
-          <div style="text-align:center;color:var(--muted);font-size:20px;">→</div>
-          <div style="text-align:center;padding:1rem;background:var(--surface2);border-radius:10px;border:1px solid var(--border);">
-            <div style="font-size:24px;margin-bottom:6px;">🕸️</div>
-            <div style="font-family:var(--mono);font-size:11px;color:#00e0b8;margin-bottom:4px;">NEO4J</div>
-            <div style="font-size:11px;color:var(--muted);">Nodes classified<br>Role graph<br>Access control</div>
+          <div style="text-align:center;font-size:20px;color:#94A3B8;font-weight:300;">→</div>
+          <div style="text-align:center;padding:1.25rem;background:#F0FDF4;border-radius:12px;border:1px solid #BBF7D0;">
+            <div style="font-size:28px;margin-bottom:8px;">🕸️</div>
+            <div style="font-family:var(--mono);font-size:11px;color:#15803D;margin-bottom:6px;font-weight:700;letter-spacing:0.5px;">NEO4J AURA</div>
+            <div style="font-size:11px;color:#64748B;line-height:1.6;">Classified nodes<br>Role access graph<br>Policy lineage</div>
           </div>
         </div>
       </div>
@@ -382,38 +419,39 @@
       <div class="card">
         <div class="card-title">Column Classification Distribution</div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;">
-          <div style="text-align:center;padding:1.25rem;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:10px;">
-            <div style="font-family:var(--mono);font-size:32px;color:var(--restricted);font-weight:700;">18</div>
-            <span class="cls-chip chip-restricted" style="margin-top:8px;display:inline-block;">Restricted</span>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px;">SSN, salaries, accounts, IPs</div>
+          <div style="text-align:center;padding:1.25rem;background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;">
+            <div style="font-family:var(--mono);font-size:36px;color:#DC2626;font-weight:700;line-height:1;">18</div>
+            <div style="margin:10px 0 6px;"><span class="cls-chip chip-restricted">Restricted</span></div>
+            <div style="font-size:11px;color:#64748B;">SSN, salaries, accounts, IPs</div>
           </div>
-          <div style="text-align:center;padding:1.25rem;background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.25);border-radius:10px;">
-            <div style="font-family:var(--mono);font-size:32px;color:var(--pii);font-weight:700;">16</div>
-            <span class="cls-chip chip-pii" style="margin-top:8px;display:inline-block;">PII</span>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px;">Names, emails, DOB, addresses</div>
+          <div style="text-align:center;padding:1.25rem;background:#FFEDD5;border:1px solid #FED7AA;border-radius:12px;">
+            <div style="font-family:var(--mono);font-size:36px;color:#C2410C;font-weight:700;line-height:1;">16</div>
+            <div style="margin:10px 0 6px;"><span class="cls-chip chip-pii">PII</span></div>
+            <div style="font-size:11px;color:#64748B;">Names, emails, DOB, addresses</div>
           </div>
-          <div style="text-align:center;padding:1.25rem;background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.25);border-radius:10px;">
-            <div style="font-family:var(--mono);font-size:32px;color:var(--internal);font-weight:700;">20</div>
-            <span class="cls-chip chip-internal" style="margin-top:8px;display:inline-block;">Internal</span>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px;">IDs, statuses, departments</div>
+          <div style="text-align:center;padding:1.25rem;background:#FEF3C7;border:1px solid #FDE68A;border-radius:12px;">
+            <div style="font-family:var(--mono);font-size:36px;color:#92400E;font-weight:700;line-height:1;">33</div>
+            <div style="margin:10px 0 6px;"><span class="cls-chip chip-internal">Internal</span></div>
+            <div style="font-size:11px;color:#64748B;">IDs, statuses, departments</div>
           </div>
-          <div style="text-align:center;padding:1.25rem;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:10px;">
-            <div style="font-family:var(--mono);font-size:32px;color:var(--public);font-weight:700;">8</div>
-            <span class="cls-chip chip-public" style="margin-top:8px;display:inline-block;">Public</span>
-            <div style="font-size:11px;color:var(--muted);margin-top:6px;">Country, category, SKU</div>
+          <div style="text-align:center;padding:1.25rem;background:#DCFCE7;border:1px solid #BBF7D0;border-radius:12px;">
+            <div style="font-family:var(--mono);font-size:36px;color:#166534;font-weight:700;line-height:1;">14</div>
+            <div style="margin:10px 0 6px;"><span class="cls-chip chip-public">Public</span></div>
+            <div style="font-size:11px;color:#64748B;">Country, category, SKU</div>
           </div>
         </div>
       </div>
 
       <div class="card">
-        <div class="card-title">Neo4j Graph Model</div>
+        <div class="card-title">Neo4j Graph Model — Snowflake Schema as a Graph</div>
         <div class="graph-canvas" id="graph-overview"></div>
-        <div style="font-size:11px;color:var(--muted);margin-top:8px;">
-          Node colors: <span style="color:var(--accent)">■</span> Schema/Catalog &nbsp;
-          <span style="color:var(--restricted)">■</span> Restricted &nbsp;
-          <span style="color:var(--pii)">■</span> PII &nbsp;
-          <span style="color:var(--internal)">■</span> Internal &nbsp;
-          <span style="color:var(--public)">■</span> Public
+        <div style="font-size:11px;color:var(--muted);margin-top:8px;display:flex;gap:16px;flex-wrap:wrap;">
+          <span><span style="color:#0369A1;font-weight:700;">■</span> Database / Schema</span>
+          <span><span style="color:#6366F1;font-weight:700;">■</span> Tables</span>
+          <span><span style="color:#DC2626;font-weight:700;">■</span> Restricted</span>
+          <span><span style="color:#C2410C;font-weight:700;">■</span> PII</span>
+          <span><span style="color:#D97706;font-weight:700;">■</span> Internal</span>
+          <span><span style="color:#16A34A;font-weight:700;">■</span> Public</span>
         </div>
       </div>
     </div>
@@ -428,9 +466,9 @@
       <div class="card">
         <div class="card-title">Node-Level Access Results — <span id="current-role-label">DATA_ANALYST</span></div>
         <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;">
-          Each data node in Neo4j carries a <code style="color:var(--accent)">data_classification</code> property
+          Each data node in Neo4j carries a <code style="color:var(--accent);background:#EFF6FF;padding:1px 5px;border-radius:4px;font-family:var(--mono)">data_classification</code> property
           propagated from Snowflake tags. Access is enforced via:
-          <code style="color:var(--accent2);">MATCH (r:Role)-[:CAN_ACCESS]->(cl:Classification)&lt;-[:HAS_CLASSIFICATION]-(n)</code>
+          <code style="color:#6D28D9;background:#F5F3FF;padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:11px;">MATCH (r:Role)-[:CAN_ACCESS]->(cl:Classification)&lt;-[:HAS_CLASSIFICATION]-(n)</code>
         </p>
         <div id="node-access-table"></div>
       </div>
@@ -446,49 +484,49 @@
             <div class="matrix-cell mh"><span class="cls-chip chip-public">Public</span></div>
           </div>
           <div class="matrix-row" id="mrow-DATA_GOVERNANCE_ADMIN">
-            <div class="matrix-cell">🔑 Data Gov Admin</div>
+            <div class="matrix-cell" style="font-weight:600;">🔑 Data Gov Admin</div>
             <div class="matrix-cell allow">✓ FULL ACCESS</div>
             <div class="matrix-cell allow">✓ FULL ACCESS</div>
             <div class="matrix-cell allow">✓ FULL ACCESS</div>
             <div class="matrix-cell allow">✓ FULL ACCESS</div>
           </div>
           <div class="matrix-row" id="mrow-DATA_ENGINEER">
-            <div class="matrix-cell">⚙️ Data Engineer</div>
+            <div class="matrix-cell" style="font-weight:600;">⚙️ Data Engineer</div>
             <div class="matrix-cell allow">✓ FULL ACCESS</div>
             <div class="matrix-cell allow">✓ FULL ACCESS</div>
             <div class="matrix-cell allow">✓ FULL ACCESS</div>
             <div class="matrix-cell allow">✓ FULL ACCESS</div>
           </div>
           <div class="matrix-row" id="mrow-FINANCE_ANALYST">
-            <div class="matrix-cell">💰 Finance Analyst</div>
+            <div class="matrix-cell" style="font-weight:600;">💰 Finance Analyst</div>
             <div class="matrix-cell allow">✓ ACCESS</div>
             <div class="matrix-cell deny">✗ DENIED</div>
             <div class="matrix-cell allow">✓ ACCESS</div>
             <div class="matrix-cell allow">✓ ACCESS</div>
           </div>
           <div class="matrix-row" id="mrow-HR_MANAGER">
-            <div class="matrix-cell">👥 HR Manager</div>
+            <div class="matrix-cell" style="font-weight:600;">👥 HR Manager</div>
             <div class="matrix-cell deny">✗ DENIED</div>
             <div class="matrix-cell allow">✓ ACCESS</div>
             <div class="matrix-cell allow">✓ ACCESS</div>
             <div class="matrix-cell allow">✓ ACCESS</div>
           </div>
           <div class="matrix-row" id="mrow-SECURITY_AUDITOR">
-            <div class="matrix-cell">🔍 Security Auditor</div>
+            <div class="matrix-cell" style="font-weight:600;">🔍 Security Auditor</div>
             <div class="matrix-cell deny">✗ DENIED</div>
             <div class="matrix-cell deny">✗ DENIED</div>
             <div class="matrix-cell allow">✓ ACCESS</div>
             <div class="matrix-cell allow">✓ ACCESS</div>
           </div>
           <div class="matrix-row" id="mrow-DATA_ANALYST">
-            <div class="matrix-cell">📊 Data Analyst</div>
+            <div class="matrix-cell" style="font-weight:600;">📊 Data Analyst</div>
             <div class="matrix-cell deny">✗ DENIED</div>
             <div class="matrix-cell deny">✗ DENIED</div>
             <div class="matrix-cell allow">✓ ACCESS</div>
             <div class="matrix-cell allow">✓ ACCESS</div>
           </div>
           <div class="matrix-row" id="mrow-PUBLIC_USER">
-            <div class="matrix-cell">🌐 Public User</div>
+            <div class="matrix-cell" style="font-weight:600;">🌐 Public User</div>
             <div class="matrix-cell deny">✗ DENIED</div>
             <div class="matrix-cell deny">✗ DENIED</div>
             <div class="matrix-cell deny">✗ DENIED</div>
@@ -507,7 +545,7 @@
           PII fields require HR_MANAGER role or above.
         </p>
         <div class="toggle-group">
-          <span style="font-size:12px;color:var(--muted);align-self:center;">Viewing as:</span>
+          <span style="font-size:12px;color:var(--muted);align-self:center;font-weight:500;">Viewing as:</span>
           <button class="toggle-btn" onclick="showColumnView('DATA_GOVERNANCE_ADMIN')">Gov Admin</button>
           <button class="toggle-btn" onclick="showColumnView('DATA_ENGINEER')">Engineer</button>
           <button class="toggle-btn" onclick="showColumnView('HR_MANAGER')">HR Manager</button>
@@ -541,27 +579,27 @@
             </thead>
             <tbody>
               <!-- Customers -->
-              <tr><td>CUSTOMERS</td><td>customer_id</td><td><span class="cls-chip chip-internal">Internal</span></td><td>—</td><td>No</td><td>—</td><td>—</td></tr>
-              <tr><td>CUSTOMERS</td><td>first_name</td><td><span class="cls-chip chip-pii">PII</span></td><td>Personal</td><td>No</td><td>Customer Success</td><td>—</td></tr>
-              <tr><td>CUSTOMERS</td><td>email</td><td><span class="cls-chip chip-pii">PII</span></td><td>Personal</td><td>Yes</td><td>Customer Success</td><td>EMAIL_MASKING</td></tr>
-              <tr><td>CUSTOMERS</td><td>ssn</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Personal</td><td>Yes</td><td>Compliance Team</td><td>SSN_MASKING</td></tr>
-              <tr><td>CUSTOMERS</td><td>country</td><td><span class="cls-chip chip-public">Public</span></td><td>—</td><td>No</td><td>—</td><td>—</td></tr>
+              <tr><td style="color:#1D4ED8;font-weight:600;">CUSTOMERS</td><td style="font-family:var(--mono);font-size:11px;">customer_id</td><td><span class="cls-chip chip-internal">Internal</span></td><td style="color:var(--muted);">—</td><td style="color:var(--muted);">No</td><td style="color:var(--muted);">—</td><td style="color:var(--muted);">—</td></tr>
+              <tr><td style="color:#1D4ED8;font-weight:600;">CUSTOMERS</td><td style="font-family:var(--mono);font-size:11px;">first_name</td><td><span class="cls-chip chip-pii">PII</span></td><td>Personal</td><td style="color:var(--muted);">No</td><td>Customer Success</td><td style="color:var(--muted);">—</td></tr>
+              <tr><td style="color:#1D4ED8;font-weight:600;">CUSTOMERS</td><td style="font-family:var(--mono);font-size:11px;">email</td><td><span class="cls-chip chip-pii">PII</span></td><td>Personal</td><td style="color:#16A34A;font-weight:600;">Yes</td><td>Customer Success</td><td style="color:#6D28D9;font-weight:600;font-family:var(--mono);font-size:10px;">EMAIL_MASKING</td></tr>
+              <tr><td style="color:#1D4ED8;font-weight:600;">CUSTOMERS</td><td style="font-family:var(--mono);font-size:11px;">ssn</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Personal</td><td style="color:#16A34A;font-weight:600;">Yes</td><td>Compliance Team</td><td style="color:#6D28D9;font-weight:600;font-family:var(--mono);font-size:10px;">SSN_MASKING</td></tr>
+              <tr><td style="color:#1D4ED8;font-weight:600;">CUSTOMERS</td><td style="font-family:var(--mono);font-size:11px;">country</td><td><span class="cls-chip chip-public">Public</span></td><td style="color:var(--muted);">—</td><td style="color:var(--muted);">No</td><td style="color:var(--muted);">—</td><td style="color:var(--muted);">—</td></tr>
               <!-- Employees -->
-              <tr><td>EMPLOYEES</td><td>first_name</td><td><span class="cls-chip chip-pii">PII</span></td><td>Personal</td><td>No</td><td>HR Team</td><td>—</td></tr>
-              <tr><td>EMPLOYEES</td><td>ssn</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Personal</td><td>Yes</td><td>HR Team</td><td>SSN_MASKING</td></tr>
-              <tr><td>EMPLOYEES</td><td>salary</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td>Yes</td><td>Finance Team</td><td>SALARY_MASKING</td></tr>
-              <tr><td>EMPLOYEES</td><td>clearance_level</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>—</td><td>Yes</td><td>Security Team</td><td>—</td></tr>
-              <tr><td>EMPLOYEES</td><td>location_office</td><td><span class="cls-chip chip-public">Public</span></td><td>—</td><td>No</td><td>—</td><td>—</td></tr>
+              <tr><td style="color:#6D28D9;font-weight:600;">EMPLOYEES</td><td style="font-family:var(--mono);font-size:11px;">first_name</td><td><span class="cls-chip chip-pii">PII</span></td><td>Personal</td><td style="color:var(--muted);">No</td><td>HR Team</td><td style="color:var(--muted);">—</td></tr>
+              <tr><td style="color:#6D28D9;font-weight:600;">EMPLOYEES</td><td style="font-family:var(--mono);font-size:11px;">ssn</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Personal</td><td style="color:#16A34A;font-weight:600;">Yes</td><td>HR Team</td><td style="color:#6D28D9;font-weight:600;font-family:var(--mono);font-size:10px;">SSN_MASKING</td></tr>
+              <tr><td style="color:#6D28D9;font-weight:600;">EMPLOYEES</td><td style="font-family:var(--mono);font-size:11px;">salary</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td style="color:#16A34A;font-weight:600;">Yes</td><td>Finance Team</td><td style="color:#6D28D9;font-weight:600;font-family:var(--mono);font-size:10px;">SALARY_MASKING</td></tr>
+              <tr><td style="color:#6D28D9;font-weight:600;">EMPLOYEES</td><td style="font-family:var(--mono);font-size:11px;">clearance_level</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td style="color:var(--muted);">—</td><td style="color:#16A34A;font-weight:600;">Yes</td><td>Security Team</td><td style="color:var(--muted);">—</td></tr>
+              <tr><td style="color:#6D28D9;font-weight:600;">EMPLOYEES</td><td style="font-family:var(--mono);font-size:11px;">location_office</td><td><span class="cls-chip chip-public">Public</span></td><td style="color:var(--muted);">—</td><td style="color:var(--muted);">No</td><td style="color:var(--muted);">—</td><td style="color:var(--muted);">—</td></tr>
               <!-- Financial -->
-              <tr><td>FINANCIAL_TRANSACTIONS</td><td>account_number</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td>Yes</td><td>Finance</td><td>ACCOUNT_MASKING</td></tr>
-              <tr><td>FINANCIAL_TRANSACTIONS</td><td>transaction_amount</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td>No</td><td>Finance</td><td>AMOUNT_MASKING</td></tr>
-              <tr><td>FINANCIAL_TRANSACTIONS</td><td>fraud_flag</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td>No</td><td>Risk Team</td><td>—</td></tr>
-              <tr><td>FINANCIAL_TRANSACTIONS</td><td>ip_address</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Personal</td><td>No</td><td>Security</td><td>IP_MASKING</td></tr>
-              <tr><td>FINANCIAL_TRANSACTIONS</td><td>merchant_category</td><td><span class="cls-chip chip-public">Public</span></td><td>—</td><td>No</td><td>—</td><td>—</td></tr>
+              <tr><td style="color:#DC2626;font-weight:600;">FINANCIAL_TRANSACTIONS</td><td style="font-family:var(--mono);font-size:11px;">account_number</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td style="color:#16A34A;font-weight:600;">Yes</td><td>Finance</td><td style="color:#6D28D9;font-weight:600;font-family:var(--mono);font-size:10px;">ACCOUNT_MASKING</td></tr>
+              <tr><td style="color:#DC2626;font-weight:600;">FINANCIAL_TRANSACTIONS</td><td style="font-family:var(--mono);font-size:11px;">transaction_amount</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td style="color:var(--muted);">No</td><td>Finance</td><td style="color:#6D28D9;font-weight:600;font-family:var(--mono);font-size:10px;">AMOUNT_MASKING</td></tr>
+              <tr><td style="color:#DC2626;font-weight:600;">FINANCIAL_TRANSACTIONS</td><td style="font-family:var(--mono);font-size:11px;">fraud_flag</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td style="color:var(--muted);">No</td><td>Risk Team</td><td style="color:var(--muted);">—</td></tr>
+              <tr><td style="color:#DC2626;font-weight:600;">FINANCIAL_TRANSACTIONS</td><td style="font-family:var(--mono);font-size:11px;">ip_address</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Personal</td><td style="color:var(--muted);">No</td><td>Security</td><td style="color:#6D28D9;font-weight:600;font-family:var(--mono);font-size:10px;">IP_MASKING</td></tr>
+              <tr><td style="color:#DC2626;font-weight:600;">FINANCIAL_TRANSACTIONS</td><td style="font-family:var(--mono);font-size:11px;">merchant_category</td><td><span class="cls-chip chip-public">Public</span></td><td style="color:var(--muted);">—</td><td style="color:var(--muted);">No</td><td style="color:var(--muted);">—</td><td style="color:var(--muted);">—</td></tr>
               <!-- Products -->
-              <tr><td>PRODUCTS</td><td>product_sku</td><td><span class="cls-chip chip-public">Public</span></td><td>—</td><td>No</td><td>—</td><td>—</td></tr>
-              <tr><td>PRODUCTS</td><td>cost_price</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td>No</td><td>Finance Team</td><td>—</td></tr>
-              <tr><td>PRODUCTS</td><td>profit_margin</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td>No</td><td>Finance Team</td><td>—</td></tr>
+              <tr><td style="color:#0891B2;font-weight:600;">PRODUCTS</td><td style="font-family:var(--mono);font-size:11px;">product_sku</td><td><span class="cls-chip chip-public">Public</span></td><td style="color:var(--muted);">—</td><td style="color:var(--muted);">No</td><td style="color:var(--muted);">—</td><td style="color:var(--muted);">—</td></tr>
+              <tr><td style="color:#0891B2;font-weight:600;">PRODUCTS</td><td style="font-family:var(--mono);font-size:11px;">cost_price</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td style="color:var(--muted);">No</td><td>Finance Team</td><td style="color:var(--muted);">—</td></tr>
+              <tr><td style="color:#0891B2;font-weight:600;">PRODUCTS</td><td style="font-family:var(--mono);font-size:11px;">profit_margin</td><td><span class="cls-chip chip-restricted">Restricted</span></td><td>Financial</td><td style="color:var(--muted);">No</td><td>Finance Team</td><td style="color:var(--muted);">—</td></tr>
             </tbody>
           </table>
         </div>
@@ -571,38 +609,39 @@
     <!-- TAB: ROLE SECURITY -->
     <div id="tab-role-security" class="panel">
       <div class="card">
-        <div class="card-title">Role Hierarchy</div>
+        <div class="card-title">Role Hierarchy — INHERITS_FROM Graph</div>
         <div class="graph-canvas" id="role-hierarchy-graph" style="height:260px;"></div>
       </div>
 
       <div class="card">
         <div class="card-title">Row Access Policy Demonstration</div>
         <p style="font-size:12px;color:var(--muted);margin-bottom:1rem;">
-          Row-level policies in Snowflake are modeled as properties + Cypher WHERE clauses in Neo4j.
+          Row-level policies in Snowflake control which rows each role can see. These are modeled as
+          node properties + Cypher WHERE clauses in Neo4j.
         </p>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
           <div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:8px;">CUSTOMER_ROW_POLICY</div>
+            <div style="font-family:var(--mono);font-size:11px;color:#0369A1;margin-bottom:8px;font-weight:700;background:#EFF6FF;padding:6px 10px;border-radius:6px;">CUSTOMER_ROW_POLICY</div>
             <table class="data-table" style="font-size:11px;">
               <thead><tr><th>Role</th><th>Rows Visible</th></tr></thead>
               <tbody>
-                <tr><td>DATA_ENGINEER</td><td style="color:var(--public)">All rows (10)</td></tr>
-                <tr><td>HR_MANAGER</td><td style="color:var(--public)">All rows (10)</td></tr>
-                <tr><td>DATA_ANALYST</td><td style="color:var(--internal)">Active only (9)</td></tr>
-                <tr><td>PUBLIC_USER</td><td style="color:var(--restricted)">No rows (0)</td></tr>
+                <tr><td>DATA_ENGINEER</td><td style="color:#15803D;font-weight:600;">All rows (10)</td></tr>
+                <tr><td>HR_MANAGER</td><td style="color:#15803D;font-weight:600;">All rows (10)</td></tr>
+                <tr><td>DATA_ANALYST</td><td style="color:#D97706;font-weight:600;">Active only (9)</td></tr>
+                <tr><td>PUBLIC_USER</td><td style="color:#DC2626;font-weight:600;">No rows (0)</td></tr>
               </tbody>
             </table>
           </div>
           <div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--accent);margin-bottom:8px;">TRANSACTION_FRAUD_POLICY</div>
+            <div style="font-family:var(--mono);font-size:11px;color:#0369A1;margin-bottom:8px;font-weight:700;background:#EFF6FF;padding:6px 10px;border-radius:6px;">TRANSACTION_FRAUD_POLICY</div>
             <table class="data-table" style="font-size:11px;">
               <thead><tr><th>Role</th><th>Rows Visible</th></tr></thead>
               <tbody>
-                <tr><td>DATA_ENGINEER</td><td style="color:var(--public)">All rows (10)</td></tr>
-                <tr><td>FINANCE_ANALYST</td><td style="color:var(--public)">All rows (10)</td></tr>
-                <tr><td>DATA_ANALYST</td><td style="color:var(--internal)">Non-fraud only (9)</td></tr>
-                <tr><td>HR_MANAGER</td><td style="color:var(--internal)">Non-fraud only (9)</td></tr>
+                <tr><td>DATA_ENGINEER</td><td style="color:#15803D;font-weight:600;">All rows (10)</td></tr>
+                <tr><td>FINANCE_ANALYST</td><td style="color:#15803D;font-weight:600;">All rows (10)</td></tr>
+                <tr><td>DATA_ANALYST</td><td style="color:#D97706;font-weight:600;">Non-fraud only (9)</td></tr>
+                <tr><td>HR_MANAGER</td><td style="color:#D97706;font-weight:600;">Non-fraud only (9)</td></tr>
               </tbody>
             </table>
           </div>
@@ -616,7 +655,7 @@
         <div class="card-title">Snowflake Masking Policies → Neo4j Policy Nodes</div>
 
         <div class="policy-item">
-          <div class="policy-icon" style="background:rgba(239,68,68,0.15);">🔴</div>
+          <div class="policy-icon" style="background:#FEE2E2;">🔴</div>
           <div>
             <div class="policy-name">SSN_MASKING_POLICY</div>
             <div class="policy-desc">DATA_ENGINEER: full value &nbsp;|&nbsp; HR_MANAGER: ***-**-1234 &nbsp;|&nbsp; Others: ***-**-****</div>
@@ -626,7 +665,7 @@
         </div>
 
         <div class="policy-item">
-          <div class="policy-icon" style="background:rgba(249,115,22,0.15);">🟠</div>
+          <div class="policy-icon" style="background:#FFEDD5;">🟠</div>
           <div>
             <div class="policy-name">EMAIL_MASKING_POLICY</div>
             <div class="policy-desc">HR/Engineer: full email &nbsp;|&nbsp; Analyst: ***@domain.com &nbsp;|&nbsp; Others: ***@***.***</div>
@@ -636,7 +675,7 @@
         </div>
 
         <div class="policy-item">
-          <div class="policy-icon" style="background:rgba(234,179,8,0.15);">💰</div>
+          <div class="policy-icon" style="background:#FEF3C7;">💰</div>
           <div>
             <div class="policy-name">AMOUNT_MASKING_POLICY</div>
             <div class="policy-desc">Finance/Engineer: exact amount &nbsp;|&nbsp; Analyst: rounded to nearest $100 &nbsp;|&nbsp; Others: -1 (blocked)</div>
@@ -646,7 +685,7 @@
         </div>
 
         <div class="policy-item">
-          <div class="policy-icon" style="background:rgba(124,58,237,0.15);">🏦</div>
+          <div class="policy-icon" style="background:#EDE9FE;">🏦</div>
           <div>
             <div class="policy-name">ACCOUNT_MASKING_POLICY</div>
             <div class="policy-desc">Engineer: full number &nbsp;|&nbsp; Finance: ****-****-****-1234 &nbsp;|&nbsp; Others: fully masked</div>
@@ -656,7 +695,7 @@
         </div>
 
         <div class="policy-item">
-          <div class="policy-icon" style="background:rgba(6,182,212,0.15);">🌐</div>
+          <div class="policy-icon" style="background:#E0F2FE;">🌐</div>
           <div>
             <div class="policy-name">IP_MASKING_POLICY</div>
             <div class="policy-desc">Engineer/Security Auditor: full IP &nbsp;|&nbsp; Others: ***.***.***.***</div>
@@ -666,7 +705,7 @@
         </div>
 
         <div class="policy-item">
-          <div class="policy-icon" style="background:rgba(0,212,255,0.12);">👤</div>
+          <div class="policy-icon" style="background:#DBEAFE;">👤</div>
           <div>
             <div class="policy-name">CUSTOMER_ROW_POLICY</div>
             <div class="policy-desc">Analyst sees only active customers (is_active = TRUE). HR/Engineer see all.</div>
@@ -676,7 +715,7 @@
         </div>
 
         <div class="policy-item">
-          <div class="policy-icon" style="background:rgba(0,212,255,0.12);">🏢</div>
+          <div class="policy-icon" style="background:#DBEAFE;">🏢</div>
           <div>
             <div class="policy-name">EMPLOYEE_ROW_POLICY</div>
             <div class="policy-desc">Analyst sees only active employees (termination_date IS NULL). HR sees all including terminated.</div>
@@ -686,7 +725,7 @@
         </div>
 
         <div class="policy-item">
-          <div class="policy-icon" style="background:rgba(239,68,68,0.12);">⚠️</div>
+          <div class="policy-icon" style="background:#FEE2E2;">⚠️</div>
           <div>
             <div class="policy-name">TRANSACTION_FRAUD_POLICY</div>
             <div class="policy-desc">Only FINANCE_ANALYST, SECURITY_AUDITOR, DATA_ENGINEER can see fraud-flagged transactions.</div>
@@ -787,9 +826,9 @@ const ROLE_ACCESS = {
 };
 
 const ROLE_COLORS = {
-  DATA_GOVERNANCE_ADMIN: '#00d4ff', DATA_ENGINEER: '#7c3aed',
-  FINANCE_ANALYST: '#f97316', HR_MANAGER: '#a855f7',
-  SECURITY_AUDITOR: '#06b6d4', DATA_ANALYST: '#eab308', PUBLIC_USER: '#64748b',
+  DATA_GOVERNANCE_ADMIN: '#0369A1', DATA_ENGINEER: '#6D28D9',
+  FINANCE_ANALYST: '#C2410C', HR_MANAGER: '#7C3AED',
+  SECURITY_AUDITOR: '#0891B2', DATA_ANALYST: '#D97706', PUBLIC_USER: '#94A3B8',
 };
 
 // Employee data for column security demo
@@ -829,7 +868,7 @@ const NODE_DATA = [
   {type:'Product',  classification:'Restricted', count:10, icon:'📦'},
   {type:'Transaction', classification:'Restricted', count:10, icon:'💳'},
   {type:'AuditLog', classification:'Internal',   count:10, icon:'📋'},
-  {type:'Column',   classification:'Mixed',       count:62, icon:'🗂'},
+  {type:'Column',   classification:'Mixed',       count:81, icon:'🗂'},
 ];
 
 function updateNodeAccessView() {
@@ -848,10 +887,10 @@ function updateNodeAccessView() {
     const granted = cls === 'Mixed' ? true : accessible.includes(cls);
     const chip = cls === 'Mixed' ? '<span style="font-size:11px;color:var(--muted)">varies</span>' : `<span class="cls-chip chip-${cls.toLowerCase()}">${cls}</span>`;
     const decision = granted
-      ? `<span style="color:var(--public);font-family:var(--mono);font-size:11px;">✓ ACCESSIBLE</span>`
-      : `<span style="color:var(--restricted);font-family:var(--mono);font-size:11px;">✗ DENIED</span>`;
-    const visible = granted ? `<span style="color:var(--public)">${node.count}</span>` : `<span style="color:var(--restricted)">0</span>`;
-    html += `<tr><td>${node.icon} ${node.type}</td><td>${chip}</td><td>${node.count}</td><td>${decision}</td><td>${visible}</td></tr>`;
+      ? `<span style="color:#15803D;font-family:var(--mono);font-size:11px;font-weight:600;">✓ ACCESSIBLE</span>`
+      : `<span style="color:#DC2626;font-family:var(--mono);font-size:11px;font-weight:600;">✗ DENIED</span>`;
+    const visible = granted ? `<span style="color:#15803D;font-weight:600;">${node.count}</span>` : `<span style="color:#DC2626;font-weight:600;">0</span>`;
+    html += `<tr><td style="font-weight:500;">${node.icon} ${node.type}</td><td>${chip}</td><td style="text-align:center;">${node.count}</td><td>${decision}</td><td style="text-align:center;">${visible}</td></tr>`;
   }
   html += '</tbody></table></div>';
   document.getElementById('node-access-table').innerHTML = html;
@@ -907,10 +946,10 @@ function updateColumnView(role) {
       <td>${showPII ? `<span style="font-size:11px">${emp.email}</span>` : masked('', 'PII Blocked')}</td>
       <td>${canSeeInternal ? emp.dept : masked('', 'Internal')}</td>
       <td>${canSeeInternal ? emp.title : masked('', 'Internal')}</td>
-      <td>${showRestr ? `<span style="font-family:var(--mono);font-size:11px;color:var(--restricted)">${emp.ssn}</span>` : masked('', 'Restricted')}</td>
-      <td>${showRestr ? `<span style="font-family:var(--mono);font-size:11px;color:var(--restricted)">$${emp.salary.toLocaleString()}</span>` : masked('', 'Restricted')}</td>
-      <td>${showRestr ? `<span style="font-family:var(--mono);font-size:11px;color:var(--restricted)">${emp.clearance}</span>` : masked('', 'Restricted')}</td>
-      <td><span style="color:var(--public);font-size:11px">${emp.location}</span></td>
+      <td>${showRestr ? `<span style="font-family:var(--mono);font-size:11px;color:#DC2626;font-weight:600;">${emp.ssn}</span>` : masked('', 'Restricted')}</td>
+      <td>${showRestr ? `<span style="font-family:var(--mono);font-size:11px;color:#DC2626;font-weight:600;">$${emp.salary.toLocaleString()}</span>` : masked('', 'Restricted')}</td>
+      <td>${showRestr ? `<span style="font-family:var(--mono);font-size:11px;color:#DC2626;font-weight:600;">${emp.clearance}</span>` : masked('', 'Restricted')}</td>
+      <td><span style="color:#16A34A;font-size:11px;font-weight:500;">${emp.location}</span></td>
     </tr>`;
   }
   document.getElementById('col-table-body').innerHTML = html;
@@ -922,17 +961,17 @@ function drawOverviewGraph() {
   const w = canvas.offsetWidth, h = 320;
 
   const nodes = [
-    {id:'db',  x:w*0.5, y:40,     label:'SECURITY_DEMO_DB', color:'#00d4ff', r:22, icon:'❄️'},
-    {id:'sc',  x:w*0.5, y:110,    label:'DEMO_SCHEMA',      color:'#7c3aed', r:18, icon:'📁'},
-    {id:'t1',  x:w*0.15,y:190,    label:'CUSTOMERS',        color:'#f97316', r:16, icon:'👤'},
-    {id:'t2',  x:w*0.35,y:190,    label:'EMPLOYEES',        color:'#f97316', r:16, icon:'🏢'},
-    {id:'t3',  x:w*0.5, y:190,    label:'PRODUCTS',         color:'#22c55e', r:16, icon:'📦'},
-    {id:'t4',  x:w*0.65,y:190,    label:'TRANSACTIONS',     color:'#ef4444', r:16, icon:'💳'},
-    {id:'t5',  x:w*0.85,y:190,    label:'AUDIT_LOGS',       color:'#eab308', r:16, icon:'📋'},
-    {id:'c_r', x:w*0.15,y:280,    label:'Restricted',       color:'#ef4444', r:14, icon:'🔴'},
-    {id:'c_p', x:w*0.38,y:280,    label:'PII',              color:'#f97316', r:14, icon:'🟠'},
-    {id:'c_i', x:w*0.62,y:280,    label:'Internal',         color:'#eab308', r:14, icon:'🟡'},
-    {id:'c_pu',x:w*0.85,y:280,    label:'Public',           color:'#22c55e', r:14, icon:'🟢'},
+    {id:'db',  x:w*0.5, y:40,     label:'SECURITY_DEMO_DB', color:'#0369A1', r:22, icon:'❄️'},
+    {id:'sc',  x:w*0.5, y:110,    label:'DEMO_SCHEMA',      color:'#6D28D9', r:18, icon:'📁'},
+    {id:'t1',  x:w*0.15,y:190,    label:'CUSTOMERS',        color:'#6366F1', r:16, icon:'👤'},
+    {id:'t2',  x:w*0.35,y:190,    label:'EMPLOYEES',        color:'#6366F1', r:16, icon:'🏢'},
+    {id:'t3',  x:w*0.5, y:190,    label:'PRODUCTS',         color:'#6366F1', r:16, icon:'📦'},
+    {id:'t4',  x:w*0.65,y:190,    label:'TRANSACTIONS',     color:'#6366F1', r:16, icon:'💳'},
+    {id:'t5',  x:w*0.85,y:190,    label:'AUDIT_LOGS',       color:'#6366F1', r:16, icon:'📋'},
+    {id:'c_r', x:w*0.15,y:280,    label:'Restricted',       color:'#DC2626', r:14, icon:'🔴'},
+    {id:'c_p', x:w*0.38,y:280,    label:'PII',              color:'#C2410C', r:14, icon:'🟠'},
+    {id:'c_i', x:w*0.62,y:280,    label:'Internal',         color:'#D97706', r:14, icon:'🟡'},
+    {id:'c_pu',x:w*0.85,y:280,    label:'Public',           color:'#16A34A', r:14, icon:'🟢'},
   ];
 
   const edges = [
@@ -950,14 +989,14 @@ function drawOverviewGraph() {
   // Edges
   for (const [a, b] of edges) {
     const na = nodeMap[a], nb = nodeMap[b];
-    svg += `<line x1="${na.x}" y1="${na.y}" x2="${nb.x}" y2="${nb.y}" stroke="#1e2d45" stroke-width="1.5" opacity="0.7"/>`;
+    svg += `<line x1="${na.x}" y1="${na.y}" x2="${nb.x}" y2="${nb.y}" stroke="#CBD5E1" stroke-width="1.5" opacity="0.8"/>`;
   }
 
   // Nodes
   for (const n of nodes) {
-    svg += `<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="${n.color}22" stroke="${n.color}" stroke-width="1.5" class="node-circle"/>`;
+    svg += `<circle cx="${n.x}" cy="${n.y}" r="${n.r}" fill="${n.color}18" stroke="${n.color}" stroke-width="2" class="node-circle"/>`;
     svg += `<text x="${n.x}" y="${n.y+5}" text-anchor="middle" font-size="11" fill="${n.color}" font-family="monospace">${n.icon}</text>`;
-    svg += `<text x="${n.x}" y="${n.y + n.r + 13}" text-anchor="middle" font-size="9" fill="#64748b" font-family="monospace">${n.label.length>12?n.label.substr(0,12)+'..':n.label}</text>`;
+    svg += `<text x="${n.x}" y="${n.y + n.r + 13}" text-anchor="middle" font-size="9" fill="#64748B" font-family="monospace" font-weight="600">${n.label.length>12?n.label.substr(0,12)+'..':n.label}</text>`;
   }
 
   svg += '</svg>';
@@ -971,13 +1010,13 @@ function drawRoleGraph() {
   const w = canvas.offsetWidth || 600, h = 260;
 
   const roles = [
-    {id:'gov',  x:w*0.5,  y:30,  label:'DATA_GOVERNANCE_ADMIN', color:'#00d4ff'},
-    {id:'eng',  x:w*0.5,  y:90,  label:'DATA_ENGINEER',         color:'#7c3aed'},
-    {id:'anal', x:w*0.5,  y:150, label:'DATA_ANALYST',           color:'#eab308'},
-    {id:'hr',   x:w*0.2,  y:220, label:'HR_MANAGER',             color:'#a855f7'},
-    {id:'fin',  x:w*0.4,  y:220, label:'FINANCE_ANALYST',        color:'#f97316'},
-    {id:'sec',  x:w*0.62, y:220, label:'SECURITY_AUDITOR',       color:'#06b6d4'},
-    {id:'pub',  x:w*0.82, y:220, label:'PUBLIC_USER',            color:'#64748b'},
+    {id:'gov',  x:w*0.5,  y:30,  label:'DATA_GOVERNANCE_ADMIN', color:'#0369A1'},
+    {id:'eng',  x:w*0.5,  y:90,  label:'DATA_ENGINEER',         color:'#6D28D9'},
+    {id:'anal', x:w*0.5,  y:150, label:'DATA_ANALYST',           color:'#D97706'},
+    {id:'hr',   x:w*0.2,  y:220, label:'HR_MANAGER',             color:'#7C3AED'},
+    {id:'fin',  x:w*0.4,  y:220, label:'FINANCE_ANALYST',        color:'#C2410C'},
+    {id:'sec',  x:w*0.62, y:220, label:'SECURITY_AUDITOR',       color:'#0891B2'},
+    {id:'pub',  x:w*0.82, y:220, label:'PUBLIC_USER',            color:'#94A3B8'},
   ];
 
   const edges = [['gov','eng'],['eng','anal'],['anal','hr'],['anal','fin'],['anal','sec'],['anal','pub']];
@@ -986,12 +1025,12 @@ function drawRoleGraph() {
   let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%">`;
   for (const [a,b] of edges) {
     const na=nodeMap[a], nb=nodeMap[b];
-    svg+=`<line x1="${na.x}" y1="${na.y}" x2="${nb.x}" y2="${nb.y}" stroke="#1e2d45" stroke-width="2"/>`;
+    svg+=`<line x1="${na.x}" y1="${na.y}" x2="${nb.x}" y2="${nb.y}" stroke="#CBD5E1" stroke-width="2"/>`;
   }
   for (const n of roles) {
-    const active = n.id === 'gov' || n.id === 'eng' || n.id === 'anal' ? 2.5 : 1.5;
-    svg+=`<rect x="${n.x-52}" y="${n.y-14}" width="104" height="28" rx="6" fill="${n.color}18" stroke="${n.color}" stroke-width="${active}"/>`;
-    svg+=`<text x="${n.x}" y="${n.y+5}" text-anchor="middle" font-size="9.5" fill="${n.color}" font-family="monospace">${n.label}</text>`;
+    const sw = n.id === 'gov' || n.id === 'eng' ? 2.5 : 1.5;
+    svg+=`<rect x="${n.x-52}" y="${n.y-14}" width="104" height="28" rx="6" fill="${n.color}14" stroke="${n.color}" stroke-width="${sw}"/>`;
+    svg+=`<text x="${n.x}" y="${n.y+5}" text-anchor="middle" font-size="9.5" fill="${n.color}" font-family="monospace" font-weight="700">${n.label}</text>`;
   }
   svg += '</svg>';
   canvas.innerHTML = svg;
