@@ -76,11 +76,11 @@ RETURN c.customer_id, c.first_name, c.last_name, c.city,
        c.customer_tier, c.data_classification AS node_classification,
        current_role AS accessing_as
 ORDER BY c.customer_id;
-// PUBLIC_USER → 0 results (Customer nodes are Restricted)
-// DATA_ANALYST → 0 results (Restricted not in their access)
-// HR_MANAGER → all customers visible (PII + Restricted in scope? No, only PII)
-// DATA_ENGINEER → all customers
-// FINANCE_ANALYST → all customers (has Restricted access)
+// PUBLIC_USER      → 0 results (Customer nodes are Restricted)
+// DATA_ANALYST     → 0 results (no access to Restricted)
+// HR_MANAGER       → 0 results (no access to Restricted — PII only)
+// FINANCE_ANALYST  → all customers (has Restricted access)
+// DATA_ENGINEER    → all customers (has Restricted access)
 
 
 // ── DEMO: Finance-only transaction view ───────────────────────────────────────
@@ -211,7 +211,8 @@ ORDER BY node_type;
 
 // ── PII exposure map ──────────────────────────────────────────────────────────
 MATCH (col:Column {data_classification: 'PII'})
-MATCH (t:Table {fqn: 'SECURITY_DEMO_DB.DEMO_SCHEMA.' + col.table_name})
+MATCH (t:Table)
+WHERE t.fqn = 'SECURITY_DEMO_DB.DEMO_SCHEMA.' + col.table_name
 RETURN t.name AS table_name, 
        collect(col.name) AS pii_columns,
        count(col) AS pii_column_count
@@ -242,7 +243,7 @@ ORDER BY column_count DESC;
 WITH 'FINANCE_ANALYST' AS role_name
 MATCH (r:Role {name: role_name})-[:CAN_ACCESS]->(cl:Classification)
 <-[:HAS_CLASSIFICATION]-(c:Customer {customer_id: 1001})
-<-[:MADE_TRANSACTION]-(tx:Transaction)
+-[:MADE_TRANSACTION]->(tx:Transaction)
 RETURN 
     role_name AS role,
     c.customer_id AS customer_id,
