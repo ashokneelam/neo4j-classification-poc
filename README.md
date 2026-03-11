@@ -1,64 +1,176 @@
+# 🔐 Snowflake → Neo4j Data Classification & Access Control Demo
 
-# Project Title
+A complete end-to-end project demonstrating:
+- **Column-level tagging** in Snowflake (PII, Restricted, Internal, Public)
+- **ETL ingestion** that propagates tags as Neo4j node properties
+- **Node-level access control** in Neo4j via classification graph
+- **Role-level security** with 7 roles and hierarchy
+- **Column-level masking** via Snowflake policies mirrored in Neo4j
 
-One Paragraph of project description goes here
+---
 
-## Getting Started
+## Project Structure
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
-
-### Prerequisites
-
-What things you need to install the software and how to install them
-
-```text
-Give examples
+```
+snowflake-neo4j-security/
+├── snowflake/
+│   ├── 01_setup_tags.sql           # Create classification tags
+│   ├── 02_create_tables.sql        # 5 tables with 10 rows each
+│   ├── 03_apply_tags.sql           # Apply tags to all 62 columns
+│   ├── 04_security_policies.sql    # Roles, masking + row access policies
+│   └── 05_tag_extraction_queries.sql # ETL extraction queries
+├── ingestion/
+│   └── pipeline.py                 # Snowflake → Neo4j Python pipeline
+├── neo4j/
+│   └── 01_access_control_queries.cypher  # All demo Cypher queries
+├── docs/
+│   └── demo-dashboard.html         # Interactive demo UI
+├── requirements.txt
+├── .env.example
+└── README.md
 ```
 
-### Installing
+---
 
-A step by step series of examples that tell you have to get a development env running
+## Quick Start
 
-Say what the step will be
+### 1. Set Up Snowflake
 
-```text
-Give the example
+Run the SQL scripts in order in your Snowflake worksheet:
+
+```sql
+-- Step 1: Create tags
+@snowflake/01_setup_tags.sql
+
+-- Step 2: Create tables with dummy data
+@snowflake/02_create_tables.sql
+
+-- Step 3: Apply classification tags to columns
+@snowflake/03_apply_tags.sql
+
+-- Step 4: Create roles, masking policies, row access policies
+@snowflake/04_security_policies.sql
 ```
 
-And repeat
+### 2. Configure Environment
 
-```text
-until finished
+```bash
+cp .env.example .env
+# Edit .env with your Snowflake and Neo4j credentials
 ```
 
-End with an example of getting some data out of the system or using it for a little demo
+### 3. Install Dependencies
 
-## Running the tests
-
-Explain how to run the automated tests for this system
-
-### Break down into end to end tests
-
-Explain what these tests test and why
-
-```text
-Give an example
+```bash
+pip install -r requirements.txt
 ```
 
-### And coding style tests
+### 4. Run Ingestion Pipeline
 
-Explain what these tests test and why
+```bash
+# With live Snowflake connection:
+python ingestion/pipeline.py
 
-```text
-Give an example
+# Without Snowflake (mock data mode):
+python ingestion/pipeline.py --mock
 ```
 
-## Deployment
+### 5. Explore in Neo4j Browser
 
-Add additional notes about how to deploy this on a live system
+Open Neo4j Browser and run queries from `neo4j/01_access_control_queries.cypher`.
 
-## Acknowledgments
+---
 
-* Hat tip to anyone who's code was used
-* Inspiration
-* etc
+## Tables & Classification Tags
+
+| Table | Restricted | PII | Internal | Public |
+|-------|-----------|-----|----------|--------|
+| CUSTOMERS | ssn | first_name, last_name, email, phone, dob | customer_id, tier | country |
+| EMPLOYEES | ssn, salary, bonus, bank_account, clearance_level | first_name, email, phone, dob | department, job_title | location_office |
+| FINANCIAL_TRANSACTIONS | account_number, amount, fraud_flag, ip_address | — | transaction_id, type | merchant_category, currency |
+| PRODUCTS | cost_price, profit_margin | — | product_id, stock | product_sku, name, category |
+| AUDIT_LOGS | source_ip, session_id | user_email | log_id, action_type | — |
+
+---
+
+## Neo4j Graph Model
+
+```
+(:Database)
+    └─[:CONTAINS_SCHEMA]→(:Schema)
+          └─[:CONTAINS_TABLE]→(:Table)
+                └─[:HAS_COLUMN]→(:Column)
+                      └─[:CLASSIFIED_AS]→(:Classification)
+
+(:Role)─[:CAN_ACCESS]→(:Classification)
+(:Role)─[:INHERITS_FROM]→(:Role)
+
+(:DataNode)─[:HAS_CLASSIFICATION]→(:Classification)
+(:Policy)─[:MASKS]→(:Column)
+```
+
+### Node Labels
+- `Database`, `Schema`, `Table`, `Column` — catalog/structural nodes
+- `Customer`, `Employee`, `Product`, `Transaction`, `AuditLog` — data nodes
+- `Classification` — PII, Restricted, Internal, Public
+- `Role` — 7 roles with hierarchy
+- `Policy` — 9 policies (6 masking + 3 row access)
+
+---
+
+## Role Hierarchy & Permissions
+
+```
+DATA_GOVERNANCE_ADMIN  (Level 1)  → All classifications
+    └── DATA_ENGINEER             → All classifications
+            └── DATA_ANALYST      → Internal + Public only
+                    ├── HR_MANAGER        → PII + Internal + Public
+                    ├── FINANCE_ANALYST   → Restricted + Internal + Public
+                    ├── SECURITY_AUDITOR  → Internal + Public
+                    └── PUBLIC_USER       → Public only
+```
+
+---
+
+## Access Control Demo Queries
+
+```cypher
+-- What can DATA_ANALYST see?
+MATCH (r:Role {name: 'DATA_ANALYST'})-[:CAN_ACCESS]->(cl:Classification)
+      <-[:HAS_CLASSIFICATION]-(n)
+RETURN labels(n)[0] AS type, count(n) AS count
+
+-- Column-level: which columns can HR_MANAGER see in EMPLOYEES?
+MATCH (r:Role {name: 'HR_MANAGER'})-[:CAN_ACCESS]->(cl:Classification)
+      <-[:CLASSIFIED_AS]-(col:Column {table_name: 'EMPLOYEES'})
+RETURN col.name, col.data_classification, col.data_owner
+
+-- Access denied simulation
+WITH 'PUBLIC_USER' AS role, 'Restricted' AS cls
+MATCH (r:Role {name: role})
+OPTIONAL MATCH (r)-[:CAN_ACCESS]->(cl:Classification {name: cls})
+RETURN CASE WHEN cl IS NULL THEN 'DENIED' ELSE 'GRANTED' END AS decision
+```
+
+---
+
+## Masking Policies (Snowflake → Neo4j)
+
+| Policy | Applies To | Behavior |
+|--------|-----------|---------|
+| SSN_MASKING | ssn columns | Full for Engineer; last-4 for HR; masked for others |
+| EMAIL_MASKING | email columns | Full for HR/Engineer; domain-only for Analyst |
+| AMOUNT_MASKING | transaction_amount | Exact for Finance; rounded for Analyst; -1 blocked |
+| ACCOUNT_MASKING | account_number | Full for Engineer; last-4 for Finance |
+| IP_MASKING | ip_address, source_ip | Visible to Security Auditor/Engineer only |
+| SALARY_MASKING | salary, bonus | Visible to HR/Finance only |
+
+---
+
+## Row Access Policies
+
+| Policy | Table | Rule |
+|--------|-------|------|
+| CUSTOMER_ROW_POLICY | CUSTOMERS | Analysts see active customers only |
+| EMPLOYEE_ROW_POLICY | EMPLOYEES | Analysts see non-terminated only |
+| TRANSACTION_FRAUD_POLICY | FINANCIAL_TRANSACTIONS | Fraud rows hidden from non-Finance/Security roles |
