@@ -49,7 +49,11 @@ What this does NOT touch
   - Data nodes  (Customer, Employee, Product, Transaction, AuditLog)
   - Role nodes and CAN_ACCESS relationships
   - Policy nodes and MASKS relationships
-  - The graph schema (Database, Schema, Table nodes)
+
+New tables added to Snowflake (with tags or row access policies) are picked up
+automatically — no config change required. The script queries
+SNOWFLAKE.ACCOUNT_USAGE to discover which tables are tagged/secured, then
+creates the full Database → Schema → Table → Column chain in Neo4j if missing.
 ================================================================================
 """
 
@@ -100,16 +104,53 @@ NEO4J_CONFIG = {
     "password": os.getenv("NEO4J_PASSWORD", "password"),
 }
 
-TARGET_TABLES = [
-    "CUSTOMERS",
-    "EMPLOYEES",
-    "FINANCIAL_TRANSACTIONS",
-    "PRODUCTS",
-    "AUDIT_LOGS",
-]
-
 DB   = os.getenv("SNOWFLAKE_DATABASE", "SECURITY_DEMO_DB")
 SCH  = os.getenv("SNOWFLAKE_SCHEMA",   "DEMO_SCHEMA")
+
+# ---------------------------------------------------------------------------
+# Snowflake: discover which tables are tagged / have row access policies
+# ---------------------------------------------------------------------------
+
+def discover_tagged_tables(conn) -> list:
+    """
+    Returns table names that have at least one column tag OR a row access
+    policy applied — ignoring every other table in the schema.
+
+    Uses SNOWFLAKE.ACCOUNT_USAGE which covers the full schema in one query
+    (vs calling TAG_REFERENCES_ALL_COLUMNS per table, which requires knowing
+    the table list upfront).  Account Usage views have a ~2 hour lag, which
+    is acceptable for table discovery — new tables won't require immediate
+    syncing the moment they are created.
+    """
+    sql = f"""
+    SELECT DISTINCT object_name AS table_name
+    FROM SNOWFLAKE.ACCOUNT_USAGE.TAG_REFERENCES
+    WHERE domain          = 'COLUMN'
+      AND object_database = '{DB}'
+      AND object_schema   = '{SCH}'
+
+    UNION
+
+    SELECT DISTINCT ref_entity_name AS table_name
+    FROM SNOWFLAKE.ACCOUNT_USAGE.POLICY_REFERENCES
+    WHERE ref_entity_domain   = 'Table'
+      AND ref_entity_database = '{DB}'
+      AND ref_entity_schema   = '{SCH}'
+      AND policy_kind         = 'ROW_ACCESS_POLICY'
+
+    ORDER BY table_name
+    """
+    cur = conn.cursor()
+    cur.execute(sql)
+    tables = [row[0] for row in cur.fetchall()]
+    cur.close()
+    if not tables:
+        log.warning("No tagged or row-access-policy tables found in "
+                    f"{DB}.{SCH}. Check that tags/policies are applied.")
+    else:
+        log.info(f"  Discovered {len(tables)} tagged/secured table(s): {tables}")
+    return tables
+
 
 # ---------------------------------------------------------------------------
 # Snowflake: pull current tag state
@@ -117,14 +158,19 @@ SCH  = os.getenv("SNOWFLAKE_SCHEMA",   "DEMO_SCHEMA")
 
 def fetch_snowflake_tags(conn) -> pd.DataFrame:
     """
-    Returns one row per column with all classification tags pivoted.
-    This is the same query the main pipeline uses, so output format matches.
+    Auto-discovers tables with tags or row access policies, then returns
+    one row per column with all classification tags pivoted.
+    No static table list — new tagged tables are picked up automatically.
     """
+    tables = discover_tagged_tables(conn)
+    if not tables:
+        return pd.DataFrame()
+
     unions = "\n    UNION ALL\n    ".join(
         f"SELECT tag_name, tag_value, object_name, column_name\n"
         f"    FROM TABLE({DB}.INFORMATION_SCHEMA.TAG_REFERENCES_ALL_COLUMNS("
         f"'{DB}.{SCH}.{t}', 'table'))"
-        for t in TARGET_TABLES
+        for t in tables
     )
     sql = f"""
     SELECT
@@ -247,6 +293,10 @@ def apply_sync(driver, sf_df: pd.DataFrame, sync_ts: str) -> int:
             "name":                row["column_name"],
             "table_name":          row["table_name"],
             "table_fqn":           f"{DB}.{SCH}.{row['table_name']}",
+            "schema_fqn":          f"{DB}.{SCH}",
+            "schema_name":         SCH,
+            "db_fqn":              DB,
+            "db_name":             DB,
             "data_type":           _val(row.get("data_type")) or "UNKNOWN",
             "is_nullable":         _val(row.get("is_nullable")) or "YES",
             "ordinal_position":    int(row.get("ordinal_position") or 0),
@@ -259,10 +309,22 @@ def apply_sync(driver, sf_df: pd.DataFrame, sync_ts: str) -> int:
         })
 
     with driver.session() as session:
-        # Update Column nodes
+        # Ensure Database → Schema → Table chain exists for new tables,
+        # then MERGE Column nodes. Using MERGE throughout so existing nodes
+        # are updated in-place and new tables are created automatically.
         session.run("""
             UNWIND $batch AS col
-            MATCH (t:Table {fqn: col.table_fqn})
+            MERGE (db:Database {fqn: col.db_fqn})
+              ON CREATE SET db.name = col.db_name
+            MERGE (s:Schema {fqn: col.schema_fqn})
+              ON CREATE SET s.name = col.schema_name, s.database_name = col.db_name
+            MERGE (db)-[:CONTAINS_SCHEMA]->(s)
+            MERGE (t:Table {fqn: col.table_fqn})
+              ON CREATE SET t.name = col.table_name,
+                            t.schema_name = col.schema_name,
+                            t.database_name = col.db_name,
+                            t.fqn = col.table_fqn
+            MERGE (s)-[:CONTAINS_TABLE]->(t)
             MERGE (c:Column {fqn: col.fqn})
             SET c.name                = col.name,
                 c.table_name          = col.table_name,
