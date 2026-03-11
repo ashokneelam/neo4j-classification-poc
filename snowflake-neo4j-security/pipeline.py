@@ -1,6 +1,6 @@
 """
 ================================================================================
-Snowflake → Neo4j Ingestion Pipeline
+Snowflake -> Neo4j Ingestion Pipeline
 Project: Data Classification & Access Control Demo
 
 This pipeline:
@@ -20,7 +20,7 @@ Dependencies:
 
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 import snowflake.connector
@@ -37,14 +37,19 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("ingestion.log")
+        logging.FileHandler("ingestion.log", encoding="utf-8")
     ]
 )
 log = logging.getLogger(__name__)
 
 # Snowflake connection config (set in .env or environment)
+# Strip .snowflakecomputing.com suffix if the full URL was provided in SNOWFLAKE_ACCOUNT
+_sf_account = os.getenv("SNOWFLAKE_ACCOUNT", "your-account.us-east-1")
+if _sf_account.endswith(".snowflakecomputing.com"):
+    _sf_account = _sf_account[: -len(".snowflakecomputing.com")]
+
 SNOWFLAKE_CONFIG = {
-    "account":    os.getenv("SNOWFLAKE_ACCOUNT",    "your-account.us-east-1"),
+    "account":    _sf_account,
     "user":       os.getenv("SNOWFLAKE_USER",       "your_username"),
     "password":   os.getenv("SNOWFLAKE_PASSWORD",   "your_password"),
     "database":   os.getenv("SNOWFLAKE_DATABASE",   "SECURITY_DEMO_DB"),
@@ -71,7 +76,7 @@ CLASSIFICATION_RANK = {
     "Public":     4,
 }
 
-# Role → allowed classifications mapping
+# Role -> allowed classifications mapping
 ROLE_ACCESS_MAP = {
     "DATA_GOVERNANCE_ADMIN": ["Public", "Internal", "PII", "Restricted"],
     "DATA_ENGINEER":         ["Public", "Internal", "PII", "Restricted"],
@@ -94,7 +99,7 @@ class SnowflakeExtractor:
     def connect(self):
         log.info("Connecting to Snowflake...")
         self.conn = snowflake.connector.connect(**self.config)
-        log.info("✓ Snowflake connection established")
+        log.info("[OK] Snowflake connection established")
 
     def disconnect(self):
         if self.conn:
@@ -155,14 +160,14 @@ class SnowflakeExtractor:
         ORDER BY t.object_name, c.ORDINAL_POSITION
         """
         df = self.query(sql)
-        log.info(f"✓ Extracted metadata for {len(df)} columns across {df['table_name'].nunique()} tables")
+        log.info(f"[OK] Extracted metadata for {len(df)} columns across {df['table_name'].nunique()} tables")
         return df
 
     def extract_table_data(self, table_name: str) -> pd.DataFrame:
         """Extract all rows from a table."""
         log.info(f"Extracting data from {table_name}...")
         df = self.query(f"SELECT * FROM {table_name} LIMIT 1000")
-        log.info(f"  ✓ {len(df)} rows from {table_name}")
+        log.info(f"  [OK] {len(df)} rows from {table_name}")
         return df
 
     def extract_masking_policies(self) -> pd.DataFrame:
@@ -201,7 +206,7 @@ class Neo4jGraphBuilder:
 
     def run(self, cypher: str, params: dict = None):
         with self.driver.session() as session:
-            return session.run(cypher, params or {})
+            return session.run(cypher, params or {}).data()
 
     def run_batch(self, cypher: str, batch: list):
         with self.driver.session() as session:
@@ -228,18 +233,18 @@ class Neo4jGraphBuilder:
         ]
         for c in constraints:
             self.run(c)
-        log.info(f"✓ Created {len(constraints)} constraints")
+        log.info(f"[OK] Created {len(constraints)} constraints")
 
     def clear_graph(self):
         log.info("Clearing existing graph...")
         self.run("MATCH (n) DETACH DELETE n")
-        log.info("✓ Graph cleared")
+        log.info("[OK] Graph cleared")
 
     # ------------------------------------------------------------------
     # Catalog / Structural Nodes
     # ------------------------------------------------------------------
     def create_catalog_nodes(self):
-        log.info("Creating catalog structure (Database → Schema → Tables)...")
+        log.info("Creating catalog structure (Database -> Schema -> Tables)...")
 
         # Database node
         self.run("""
@@ -247,7 +252,7 @@ class Neo4jGraphBuilder:
             SET d.platform = 'Snowflake',
                 d.created_at = $ts,
                 d.environment = 'Production'
-        """, {"name": "SECURITY_DEMO_DB", "ts": datetime.utcnow().isoformat()})
+        """, {"name": "SECURITY_DEMO_DB", "ts": datetime.now(timezone.utc).isoformat()})
 
         # Schema node
         self.run("""
@@ -271,9 +276,9 @@ class Neo4jGraphBuilder:
             """, {
                 "fqn": f"SECURITY_DEMO_DB.DEMO_SCHEMA.{table}",
                 "name": table,
-                "ts": datetime.utcnow().isoformat()
+                "ts": datetime.now(timezone.utc).isoformat()
             })
-        log.info("✓ Catalog structure created")
+        log.info("[OK] Catalog structure created")
 
     # ------------------------------------------------------------------
     # Classification Nodes
@@ -305,7 +310,7 @@ class Neo4jGraphBuilder:
                     cl.requires_encryption = $requires_encryption,
                     cl.access_roles = $access_roles
             """, c)
-        log.info(f"✓ Created {len(classifications)} classification nodes")
+        log.info(f"[OK] Created {len(classifications)} classification nodes")
 
     # ------------------------------------------------------------------
     # Role & Permission Nodes
@@ -359,7 +364,7 @@ class Neo4jGraphBuilder:
                 MERGE (p)-[:INHERITS_FROM]->(c)
             """, {"parent": parent, "child": child})
 
-        log.info(f"✓ Created {len(roles)} role nodes with permission graph")
+        log.info(f"[OK] Created {len(roles)} role nodes with permission graph")
 
     # ------------------------------------------------------------------
     # Column Nodes with Tag Metadata
@@ -382,7 +387,7 @@ class Neo4jGraphBuilder:
                 "retention_policy":    row.get('retention_policy') or '',
                 "data_owner":          row.get('data_owner') or '',
                 "snowflake_tagged":    True,
-                "ingested_at":         datetime.utcnow().isoformat(),
+                "ingested_at":         datetime.now(timezone.utc).isoformat(),
             })
 
         self.run_batch("""
@@ -412,7 +417,7 @@ class Neo4jGraphBuilder:
             MERGE (c)-[:CLASSIFIED_AS]->(cl)
         """)
 
-        log.info(f"✓ Created {len(batch)} column nodes with tag metadata propagated from Snowflake")
+        log.info(f"[OK] Created {len(batch)} column nodes with tag metadata propagated from Snowflake")
 
     # ------------------------------------------------------------------
     # Data Record Nodes
@@ -448,7 +453,7 @@ class Neo4jGraphBuilder:
                 "restricted_fields":   ["ssn"],
                 "source_table":        "CUSTOMERS",
                 "source_platform":     "Snowflake",
-                "ingested_at":         datetime.utcnow().isoformat(),
+                "ingested_at":         datetime.now(timezone.utc).isoformat(),
             })
 
         self.run_batch("""
@@ -475,7 +480,7 @@ class Neo4jGraphBuilder:
             MATCH (c:Customer), (cl:Classification {name: c.data_classification})
             MERGE (c)-[:HAS_CLASSIFICATION]->(cl)
         """)
-        log.info("✓ Customer nodes created and classified")
+        log.info("[OK] Customer nodes created and classified")
 
     def ingest_employees(self, df: pd.DataFrame):
         log.info(f"Ingesting {len(df)} Employee nodes...")
@@ -498,7 +503,7 @@ class Neo4jGraphBuilder:
                 "restricted_fields":   ["ssn", "salary", "bonus", "bank_account", "clearance_level"],
                 "source_table":        "EMPLOYEES",
                 "source_platform":     "Snowflake",
-                "ingested_at":         datetime.utcnow().isoformat(),
+                "ingested_at":         datetime.now(timezone.utc).isoformat(),
             })
 
         self.run_batch("""
@@ -535,7 +540,7 @@ class Neo4jGraphBuilder:
             MATCH (e:Employee), (cl:Classification {name: e.data_classification})
             MERGE (e)-[:HAS_CLASSIFICATION]->(cl)
         """)
-        log.info("✓ Employee nodes created with management hierarchy")
+        log.info("[OK] Employee nodes created with management hierarchy")
 
     def ingest_products(self, df: pd.DataFrame):
         log.info(f"Ingesting {len(df)} Product nodes...")
@@ -555,7 +560,7 @@ class Neo4jGraphBuilder:
                 "restricted_fields":   ["cost_price", "profit_margin"],
                 "source_table":        "PRODUCTS",
                 "source_platform":     "Snowflake",
-                "ingested_at":         datetime.utcnow().isoformat(),
+                "ingested_at":         datetime.now(timezone.utc).isoformat(),
             })
 
         self.run_batch("""
@@ -579,7 +584,7 @@ class Neo4jGraphBuilder:
             MATCH (p:Product), (cl:Classification {name: p.data_classification})
             MERGE (p)-[:HAS_CLASSIFICATION]->(cl)
         """)
-        log.info("✓ Product nodes created")
+        log.info("[OK] Product nodes created")
 
     def ingest_transactions(self, df: pd.DataFrame):
         log.info(f"Ingesting {len(df)} Transaction nodes...")
@@ -599,7 +604,7 @@ class Neo4jGraphBuilder:
                                         "transaction_amount", "fraud_flag", "ip_address"],
                 "source_table":        "FINANCIAL_TRANSACTIONS",
                 "source_platform":     "Snowflake",
-                "ingested_at":         datetime.utcnow().isoformat(),
+                "ingested_at":         datetime.now(timezone.utc).isoformat(),
             })
 
         self.run_batch("""
@@ -629,7 +634,7 @@ class Neo4jGraphBuilder:
             MATCH (tx:Transaction), (cl:Classification {name: tx.data_classification})
             MERGE (tx)-[:HAS_CLASSIFICATION]->(cl)
         """)
-        log.info("✓ Transaction nodes created with customer relationships")
+        log.info("[OK] Transaction nodes created with customer relationships")
 
     def ingest_audit_logs(self, df: pd.DataFrame):
         log.info(f"Ingesting {len(df)} AuditLog nodes...")
@@ -646,7 +651,7 @@ class Neo4jGraphBuilder:
                 "data_classification": "Internal",
                 "source_table":      "AUDIT_LOGS",
                 "source_platform":   "Snowflake",
-                "ingested_at":       datetime.utcnow().isoformat(),
+                "ingested_at":       datetime.now(timezone.utc).isoformat(),
             })
 
         self.run_batch("""
@@ -668,7 +673,7 @@ class Neo4jGraphBuilder:
             MATCH (al:AuditLog), (cl:Classification {name: al.data_classification})
             MERGE (al)-[:HAS_CLASSIFICATION]->(cl)
         """)
-        log.info("✓ AuditLog nodes created")
+        log.info("[OK] AuditLog nodes created")
 
     # ------------------------------------------------------------------
     # Policy Nodes
@@ -726,7 +731,7 @@ class Neo4jGraphBuilder:
                     MERGE (pol)-[:MASKS]->(c)
                 """, {"policy": policy_name, "fqn": fqn})
 
-        log.info(f"✓ Created {len(policies)} policy nodes")
+        log.info(f"[OK] Created {len(policies)} policy nodes")
 
     # ------------------------------------------------------------------
     # Access Control Check (Cypher Procedure)
@@ -747,7 +752,7 @@ class Neo4jGraphBuilder:
                 'Check: MATCH role -> CAN_ACCESS -> Classification <- HAS_CLASSIFICATION <- DataNode',
             ac.version = '1.0',
             ac.created_at = $ts
-        """, {"ts": datetime.utcnow().isoformat()})
+        """, {"ts": datetime.now(timezone.utc).isoformat()})
 
 
 # ---------------------------------------------------------------------------
@@ -759,7 +764,7 @@ def run_pipeline(use_mock: bool = False):
     Set use_mock=True to run with synthetic data without Snowflake connection.
     """
     log.info("=" * 70)
-    log.info("Starting Snowflake → Neo4j Ingestion Pipeline")
+    log.info("Starting Snowflake -> Neo4j Ingestion Pipeline")
     log.info("=" * 70)
 
     neo4j = Neo4jGraphBuilder(NEO4J_CONFIG)
@@ -802,7 +807,7 @@ def run_pipeline(use_mock: bool = False):
         neo4j.create_access_control_procedure()
 
         log.info("=" * 70)
-        log.info("✅  INGESTION COMPLETE")
+        log.info("[DONE]  INGESTION COMPLETE")
         log.info("=" * 70)
         print_graph_summary(neo4j)
 
@@ -817,18 +822,18 @@ def print_graph_summary(neo4j: Neo4jGraphBuilder):
         RETURN labels(n)[0] AS label, count(n) AS count
         ORDER BY count DESC
     """)
-    log.info("\n📊 Graph Summary:")
+    log.info("\n[SUMMARY] Graph Summary:")
     log.info(f"{'Node Label':<30} {'Count':>8}")
     log.info("-" * 40)
     for record in result:
         log.info(f"  {record['label']:<28} {record['count']:>8}")
 
     rel_result = neo4j.run("""
-        MATCH ()-[r]->() 
+        MATCH ()-[r]->()
         RETURN type(r) AS rel_type, count(r) AS count
         ORDER BY count DESC
     """)
-    log.info("\n🔗 Relationship Summary:")
+    log.info("\n[RELS] Relationship Summary:")
     for record in rel_result:
         log.info(f"  {record['rel_type']:<35} {record['count']:>6}")
 

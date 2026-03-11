@@ -1,4 +1,6 @@
-# 🔐 Snowflake → Neo4j Data Classification & Access Control Demo
+# Snowflake → Neo4j Data Classification & Access Control Demo
+
+**Repository:** [https://github.com/ashokneelam/neo4j-classification-poc](https://github.com/ashokneelam/neo4j-classification-poc)
 
 A complete end-to-end project demonstrating:
 - **Column-level tagging** in Snowflake (PII, Restricted, Internal, Public)
@@ -14,14 +16,17 @@ A complete end-to-end project demonstrating:
 ```
 neo4j-classification-poc/
 ├── snowflake-neo4j-security/
-│   ├── 01_setup_tags.sql               # Create classification tags
-│   ├── 02_create_tables.sql            # 5 tables with 10 rows each
-│   ├── 03_apply_tags.sql               # Apply tags to all 62 columns
+│   ├── 01_setup_tags.sql               # Create classification tags in Snowflake
+│   ├── 02_create_tables.sql            # 5 tables with sample data
+│   ├── 03_apply_tags.sql               # Apply tags to all 81 columns
 │   ├── 04_security_policies.sql        # Roles, masking + row access policies
 │   ├── 05_tag_extraction_queries.sql   # ETL extraction queries
-│   ├── pipeline.py                     # Snowflake → Neo4j Python pipeline
-│   ├── 01_access_control_queries.cypher  # All demo Cypher queries
-│   ├── demo-dashboard.html             # Interactive demo UI
+│   ├── pipeline.py                     # Snowflake → Neo4j Python ingestion pipeline
+│   ├── 01_access_control_queries.cypher  # Neo4j demo Cypher queries
+│   ├── demo_snowflake.sql              # Live demo queries for Snowflake
+│   ├── demo_neo4j.cypher               # Live demo queries for Neo4j Browser
+│   ├── demo-dashboard.html             # Interactive demo UI (open in browser)
+│   ├── setup_google_sheet.gs           # Google Apps Script to build demo spreadsheet
 │   └── .env.example                    # Environment variable template
 ├── .vscode/
 │   ├── settings.json                   # Python + Cypher editor config
