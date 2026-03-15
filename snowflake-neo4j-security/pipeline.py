@@ -20,6 +20,7 @@ Dependencies:
 
 import os
 import logging
+from pathlib import Path
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -30,7 +31,9 @@ import pandas as pd
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-load_dotenv()
+# Look for .env in the script's directory first, then one level up (project root)
+_script_dir = Path(__file__).parent
+load_dotenv(_script_dir / ".env") or load_dotenv(_script_dir.parent / ".env")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -528,7 +531,7 @@ class Neo4jGraphBuilder:
 
         # Manager relationships
         for _, row in df.iterrows():
-            if row.get("manager_id") and str(row.get("manager_id")) != "None":
+            if pd.notna(row.get("manager_id")) and str(row.get("manager_id")) not in ("None", "nan"):
                 self.run("""
                     MATCH (e:Employee {employee_id: $eid}),
                           (m:Employee {employee_id: $mid})
