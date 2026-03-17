@@ -176,7 +176,7 @@ class SnowflakeExtractor:
     def extract_masking_policies(self) -> pd.DataFrame:
         """Extract masking policy references."""
         sql = """
-        SELECT 
+        SELECT
             ref_entity_name AS table_name,
             ref_column_name AS column_name,
             policy_name,
@@ -427,16 +427,6 @@ class Neo4jGraphBuilder:
     # ------------------------------------------------------------------
     def ingest_customers(self, df: pd.DataFrame):
         log.info(f"Ingesting {len(df)} Customer nodes...")
-
-        # Determine the highest sensitivity level for each row
-        # based on column classifications
-        col_classifications = {
-            "customer_id": "Internal", "first_name": "PII", "last_name": "PII",
-            "email": "PII", "phone": "PII", "date_of_birth": "PII",
-            "ssn": "Restricted", "address_line1": "PII", "city": "Internal",
-            "state": "Internal", "country": "Public", "customer_tier": "Internal",
-        }
-
         batch = []
         for _, row in df.iterrows():
             batch.append({
@@ -449,7 +439,6 @@ class Neo4jGraphBuilder:
                 "country":         str(row.get("country", "USA")),
                 "customer_tier":   str(row.get("customer_tier", "")),
                 "is_active":       bool(row.get("is_active", True)),
-                # Node-level classification = most sensitive column
                 "data_classification": "Restricted",  # Because SSN is Restricted
                 "pii_fields":          ["first_name", "last_name", "email", "phone",
                                         "date_of_birth", "address_line1"],
@@ -478,7 +467,6 @@ class Neo4jGraphBuilder:
                 c.ingested_at         = row.ingested_at
         """, batch)
 
-        # Link customers to Classification node
         self.run("""
             MATCH (c:Customer), (cl:Classification {name: c.data_classification})
             MERGE (c)-[:HAS_CLASSIFICATION]->(cl)
@@ -538,7 +526,6 @@ class Neo4jGraphBuilder:
                     MERGE (e)-[:REPORTS_TO]->(m)
                 """, {"eid": int(row["employee_id"]), "mid": int(row["manager_id"])})
 
-        # Link to Classification
         self.run("""
             MATCH (e:Employee), (cl:Classification {name: e.data_classification})
             MERGE (e)-[:HAS_CLASSIFICATION]->(cl)
@@ -627,12 +614,10 @@ class Neo4jGraphBuilder:
                 tx.ingested_at        = row.ingested_at
         """, batch)
 
-        # MADE_TRANSACTION relationships
         self.run("""
             MATCH (tx:Transaction), (c:Customer {customer_id: tx.customer_id})
             MERGE (c)-[:MADE_TRANSACTION]->(tx)
         """)
-
         self.run("""
             MATCH (tx:Transaction), (cl:Classification {name: tx.data_classification})
             MERGE (tx)-[:HAS_CLASSIFICATION]->(cl)
@@ -684,23 +669,23 @@ class Neo4jGraphBuilder:
     def create_policy_nodes(self):
         log.info("Creating Policy nodes...")
         policies = [
-            {"name": "SSN_MASKING_POLICY",    "type": "MASKING",     "applies_to": "Restricted",
+            {"name": "SSN_MASKING_POLICY",      "type": "MASKING",    "applies_to": "Restricted",
              "description": "Masks SSN — full for DATA_ENGINEER, last-4 for HR, blocked otherwise"},
-            {"name": "EMAIL_MASKING_POLICY",  "type": "MASKING",     "applies_to": "PII",
+            {"name": "EMAIL_MASKING_POLICY",    "type": "MASKING",    "applies_to": "PII",
              "description": "Masks email — full for HR/Engineer, domain-only for Analyst"},
-            {"name": "AMOUNT_MASKING_POLICY", "type": "MASKING",     "applies_to": "Restricted",
+            {"name": "AMOUNT_MASKING_POLICY",   "type": "MASKING",    "applies_to": "Restricted",
              "description": "Rounds financial amounts for Analysts, exact for Finance"},
-            {"name": "ACCOUNT_MASKING_POLICY","type": "MASKING",     "applies_to": "Restricted",
+            {"name": "ACCOUNT_MASKING_POLICY",  "type": "MASKING",    "applies_to": "Restricted",
              "description": "Shows only last-4 of account numbers for Finance role"},
-            {"name": "IP_MASKING_POLICY",     "type": "MASKING",     "applies_to": "Restricted",
+            {"name": "IP_MASKING_POLICY",       "type": "MASKING",    "applies_to": "Restricted",
              "description": "IP address visible only to Security Auditors and Engineers"},
-            {"name": "SALARY_MASKING_POLICY", "type": "MASKING",     "applies_to": "Restricted",
+            {"name": "SALARY_MASKING_POLICY",   "type": "MASKING",    "applies_to": "Restricted",
              "description": "Salary visible only to HR and Finance"},
-            {"name": "CUSTOMER_ROW_POLICY",   "type": "ROW_ACCESS",  "applies_to": "Internal",
+            {"name": "CUSTOMER_ROW_POLICY",     "type": "ROW_ACCESS", "applies_to": "Internal",
              "description": "Analysts see only active customers; privileged see all"},
-            {"name": "EMPLOYEE_ROW_POLICY",   "type": "ROW_ACCESS",  "applies_to": "Internal",
+            {"name": "EMPLOYEE_ROW_POLICY",     "type": "ROW_ACCESS", "applies_to": "Internal",
              "description": "Active employees for Analysts; HR sees all including terminated"},
-            {"name": "TRANSACTION_FRAUD_POLICY","type":"ROW_ACCESS", "applies_to": "Restricted",
+            {"name": "TRANSACTION_FRAUD_POLICY","type": "ROW_ACCESS", "applies_to": "Restricted",
              "description": "Fraud-flagged transactions visible only to Finance/Security/Engineer"},
         ]
         for p in policies:
@@ -712,7 +697,6 @@ class Neo4jGraphBuilder:
                     pol.source_platform = 'Snowflake'
             """, p)
 
-        # Link policies to columns/tables
         policy_column_map = {
             "SSN_MASKING_POLICY":     ["SECURITY_DEMO_DB.DEMO_SCHEMA.CUSTOMERS.SSN",
                                        "SECURITY_DEMO_DB.DEMO_SCHEMA.EMPLOYEES.SSN"],
@@ -737,21 +721,15 @@ class Neo4jGraphBuilder:
         log.info(f"[OK] Created {len(policies)} policy nodes")
 
     # ------------------------------------------------------------------
-    # Access Control Check (Cypher Procedure)
+    # Access Control Config Node
     # ------------------------------------------------------------------
     def create_access_control_procedure(self):
-        """
-        Creates a Neo4j node property convention for access checking.
-        In production, this would be a Neo4j stored procedure or APOC macro.
-        Here we document the Cypher pattern for access checks.
-        """
         log.info("Documenting access control Cypher patterns...")
-        # This is stored as a reference node in the graph
         self.run("""
             MERGE (ac:AccessControlConfig {name: 'DEFAULT'})
-            SET ac.check_pattern = 
+            SET ac.check_pattern =
                 'MATCH (r:Role {name: $role})-[:CAN_ACCESS]->(cl:Classification)<-[:HAS_CLASSIFICATION]-(n) RETURN n',
-            ac.description = 
+            ac.description =
                 'Check: MATCH role -> CAN_ACCESS -> Classification <- HAS_CLASSIFICATION <- DataNode',
             ac.version = '1.0',
             ac.created_at = $ts
@@ -761,11 +739,8 @@ class Neo4jGraphBuilder:
 # ---------------------------------------------------------------------------
 # Main Pipeline
 # ---------------------------------------------------------------------------
-def run_pipeline(use_mock: bool = False):
-    """
-    Run the full ingestion pipeline.
-    Set use_mock=True to run with synthetic data without Snowflake connection.
-    """
+def run_pipeline():
+    """Run the full Snowflake -> Neo4j ingestion pipeline."""
     log.info("=" * 70)
     log.info("Starting Snowflake -> Neo4j Ingestion Pipeline")
     log.info("=" * 70)
@@ -780,24 +755,20 @@ def run_pipeline(use_mock: bool = False):
         neo4j.create_classification_nodes()
         neo4j.create_role_nodes()
 
-        if use_mock:
-            log.info("Running in MOCK mode — using embedded synthetic data")
-            metadata_df, data_frames = generate_mock_data()
-        else:
-            # Connect to Snowflake
-            sf = SnowflakeExtractor(SNOWFLAKE_CONFIG)
-            sf.connect()
-            try:
-                metadata_df = sf.extract_column_metadata()
-                data_frames = {
-                    "CUSTOMERS":               sf.extract_table_data("CUSTOMERS"),
-                    "EMPLOYEES":               sf.extract_table_data("EMPLOYEES"),
-                    "PRODUCTS":                sf.extract_table_data("PRODUCTS"),
-                    "FINANCIAL_TRANSACTIONS":  sf.extract_table_data("FINANCIAL_TRANSACTIONS"),
-                    "AUDIT_LOGS":              sf.extract_table_data("AUDIT_LOGS"),
-                }
-            finally:
-                sf.disconnect()
+        # Connect to Snowflake and extract
+        sf = SnowflakeExtractor(SNOWFLAKE_CONFIG)
+        sf.connect()
+        try:
+            metadata_df = sf.extract_column_metadata()
+            data_frames = {
+                "CUSTOMERS":              sf.extract_table_data("CUSTOMERS"),
+                "EMPLOYEES":              sf.extract_table_data("EMPLOYEES"),
+                "PRODUCTS":               sf.extract_table_data("PRODUCTS"),
+                "FINANCIAL_TRANSACTIONS": sf.extract_table_data("FINANCIAL_TRANSACTIONS"),
+                "AUDIT_LOGS":             sf.extract_table_data("AUDIT_LOGS"),
+            }
+        finally:
+            sf.disconnect()
 
         # Build graph
         neo4j.create_column_nodes(metadata_df)
@@ -821,7 +792,7 @@ def run_pipeline(use_mock: bool = False):
 def print_graph_summary(neo4j: Neo4jGraphBuilder):
     """Print a summary of what was ingested."""
     result = neo4j.run("""
-        MATCH (n) 
+        MATCH (n)
         RETURN labels(n)[0] AS label, count(n) AS count
         ORDER BY count DESC
     """)
@@ -841,167 +812,5 @@ def print_graph_summary(neo4j: Neo4jGraphBuilder):
         log.info(f"  {record['rel_type']:<35} {record['count']:>6}")
 
 
-def generate_mock_data() -> tuple:
-    """Generate mock DataFrames for testing without Snowflake."""
-    # Metadata dataframe (column metadata with classification tags)
-    columns_data = []
-    tables_cols = {
-        "CUSTOMERS": [
-            ("CUSTOMER_ID", "NUMBER",   "Internal",   ""),
-            ("FIRST_NAME",  "VARCHAR",  "PII",        "Personal"),
-            ("LAST_NAME",   "VARCHAR",  "PII",        "Personal"),
-            ("EMAIL",       "VARCHAR",  "PII",        "Personal"),
-            ("PHONE",       "VARCHAR",  "PII",        "Personal"),
-            ("SSN",         "VARCHAR",  "Restricted", "Personal"),
-            ("CITY",        "VARCHAR",  "Internal",   ""),
-            ("COUNTRY",     "VARCHAR",  "Public",     ""),
-            ("CUSTOMER_TIER","VARCHAR", "Internal",   ""),
-            ("IS_ACTIVE",   "BOOLEAN",  "Internal",   ""),
-        ],
-        "EMPLOYEES": [
-            ("EMPLOYEE_ID",   "NUMBER",  "Internal",   ""),
-            ("FIRST_NAME",    "VARCHAR", "PII",        "Personal"),
-            ("LAST_NAME",     "VARCHAR", "PII",        "Personal"),
-            ("EMAIL",         "VARCHAR", "PII",        "Personal"),
-            ("SSN",           "VARCHAR", "Restricted", "Personal"),
-            ("SALARY",        "NUMBER",  "Restricted", "Financial"),
-            ("BONUS",         "NUMBER",  "Restricted", "Financial"),
-            ("DEPARTMENT",    "VARCHAR", "Internal",   "Operational"),
-            ("LOCATION_OFFICE","VARCHAR","Public",     ""),
-            ("CLEARANCE_LEVEL","VARCHAR","Restricted", ""),
-        ],
-        "FINANCIAL_TRANSACTIONS": [
-            ("TRANSACTION_ID",   "VARCHAR","Internal",  ""),
-            ("ACCOUNT_NUMBER",   "VARCHAR","Restricted","Financial"),
-            ("TRANSACTION_AMOUNT","NUMBER","Restricted","Financial"),
-            ("FRAUD_FLAG",       "BOOLEAN","Restricted","Financial"),
-            ("MERCHANT_CATEGORY","VARCHAR","Public",    ""),
-            ("CURRENCY",         "VARCHAR","Public",    ""),
-            ("IP_ADDRESS",       "VARCHAR","Restricted","Personal"),
-        ],
-        "PRODUCTS": [
-            ("PRODUCT_ID",    "NUMBER",  "Internal",  ""),
-            ("PRODUCT_SKU",          "VARCHAR", "Public",    ""),
-            ("PRODUCT_NAME",         "VARCHAR", "Public",    ""),
-            ("PRODUCT_DESCRIPTION",  "VARCHAR", "Public",    ""),
-            ("CATEGORY",             "VARCHAR", "Public",    ""),
-            ("SUBCATEGORY",          "VARCHAR", "Public",    ""),
-            ("LAUNCH_DATE",          "DATE",    "Public",    ""),
-            ("COST_PRICE",           "NUMBER",  "Restricted","Financial"),
-            ("PROFIT_MARGIN",        "NUMBER",  "Restricted","Financial"),
-            ("UNIT_PRICE",           "NUMBER",  "Internal",  ""),
-        ],
-        "AUDIT_LOGS": [
-            ("LOG_ID",          "VARCHAR","Internal",  ""),
-            ("USER_EMAIL",      "VARCHAR","PII",       "Personal"),
-            ("SOURCE_IP",       "VARCHAR","Restricted",""),
-            ("ACTION_TYPE",     "VARCHAR","Internal",  ""),
-            ("SUCCESS_FLAG",    "BOOLEAN","Internal",  ""),
-        ],
-    }
-
-    for table, cols in tables_cols.items():
-        for i, (col_name, dtype, classification, category) in enumerate(cols):
-            columns_data.append({
-                "table_name":          table,
-                "column_name":         col_name,
-                "data_type":           dtype,
-                "is_nullable":         "YES",
-                "ordinal_position":    i + 1,
-                "data_classification": classification,
-                "data_category":       category,
-                "encryption_required": "Yes" if classification in ("Restricted", "PII") else "No",
-                "retention_policy":    "7_years" if classification == "Restricted" else "",
-                "data_owner":          "Compliance Team" if classification == "Restricted" else "",
-            })
-    metadata_df = pd.DataFrame(columns_data)
-
-    # Customers
-    customers = pd.DataFrame([
-        {"customer_id": 1001, "first_name": "Alice", "last_name": "Johnson",
-         "email": "alice.johnson@email.com", "city": "Austin", "state": "TX",
-         "country": "USA", "customer_tier": "Gold", "is_active": True},
-        {"customer_id": 1002, "first_name": "Bob", "last_name": "Martinez",
-         "email": "bob.martinez@email.com", "city": "Seattle", "state": "WA",
-         "country": "USA", "customer_tier": "Silver", "is_active": True},
-        {"customer_id": 1003, "first_name": "Carol", "last_name": "Williams",
-         "email": "carol.w@email.com", "city": "Chicago", "state": "IL",
-         "country": "USA", "customer_tier": "Platinum", "is_active": True},
-        {"customer_id": 1004, "first_name": "David", "last_name": "Brown",
-         "email": "david.brown@email.com", "city": "Miami", "state": "FL",
-         "country": "USA", "customer_tier": "Bronze", "is_active": True},
-        {"customer_id": 1005, "first_name": "Emma", "last_name": "Davis",
-         "email": "emma.davis@email.com", "city": "Denver", "state": "CO",
-         "country": "USA", "customer_tier": "Gold", "is_active": False},
-    ])
-
-    # Employees
-    employees = pd.DataFrame([
-        {"employee_id": 5001, "employee_number": "EMP-001", "first_name": "Sarah", "last_name": "Chen",
-         "email": "sarah.chen@company.com", "department": "Engineering", "job_title": "Senior Engineer",
-         "manager_id": 5010, "location_office": "San Francisco HQ", "remote_work": False,
-         "termination_date": None},
-        {"employee_id": 5002, "employee_number": "EMP-002", "first_name": "Marcus", "last_name": "Thompson",
-         "email": "marcus.t@company.com", "department": "Marketing", "job_title": "Marketing Manager",
-         "manager_id": 5010, "location_office": "New York Office", "remote_work": False,
-         "termination_date": None},
-        {"employee_id": 5010, "employee_number": "EMP-010", "first_name": "Robert", "last_name": "Kim",
-         "email": "robert.kim@company.com", "department": "Executive", "job_title": "CTO",
-         "manager_id": None, "location_office": "San Francisco HQ", "remote_work": False,
-         "termination_date": None},
-        {"employee_id": 5008, "employee_number": "EMP-008", "first_name": "Tyler", "last_name": "Brooks",
-         "email": "tyler.brooks@company.com", "department": "Marketing", "job_title": "Marketing Associate",
-         "manager_id": 5002, "location_office": "Austin Office", "remote_work": False,
-         "termination_date": "2024-06-30"},
-    ])
-
-    # Products
-    products = pd.DataFrame([
-        {"product_id": 101, "product_sku": "SKU-LAPTOP-PRO", "product_name": "ProBook Laptop 15\"",
-         "category": "Electronics", "subcategory": "Computers", "unit_price": 1499.99, "is_active": True},
-        {"product_id": 102, "product_sku": "SKU-PHONE-X1", "product_name": "SmartPhone X1",
-         "category": "Electronics", "subcategory": "Mobile", "unit_price": 999.99, "is_active": True},
-        {"product_id": 103, "product_sku": "SKU-HEADPHONE-BT", "product_name": "ProSound BT Headphones",
-         "category": "Electronics", "subcategory": "Audio", "unit_price": 349.99, "is_active": True},
-    ])
-
-    # Transactions
-    transactions = pd.DataFrame([
-        {"transaction_id": "txn-uuid-0001", "customer_id": 1001, "transaction_type": "Purchase",
-         "merchant_name": "Amazon", "merchant_category": "E-Commerce", "currency": "USD",
-         "status": "Completed", "fraud_flag": False},
-        {"transaction_id": "txn-uuid-0002", "customer_id": 1002, "transaction_type": "Purchase",
-         "merchant_name": "Whole Foods", "merchant_category": "Grocery", "currency": "USD",
-         "status": "Completed", "fraud_flag": False},
-        {"transaction_id": "txn-uuid-0010", "customer_id": 1003, "transaction_type": "Purchase",
-         "merchant_name": "Rolex Boutique", "merchant_category": "Luxury", "currency": "USD",
-         "status": "Completed", "fraud_flag": True},
-    ])
-
-    # Audit logs
-    audit_logs = pd.DataFrame([
-        {"log_id": "log-001", "user_id": "user:sarah.chen", "action_type": "SELECT",
-         "resource_accessed": "customers.email", "data_classification": "PII", "success_flag": True,
-         "failure_reason": None},
-        {"log_id": "log-002", "user_id": "user:marcus.t", "action_type": "SELECT",
-         "resource_accessed": "customers.*", "data_classification": "PII", "success_flag": False,
-         "failure_reason": "Insufficient permissions"},
-        {"log_id": "log-008", "user_id": "user:unknown", "action_type": "SELECT",
-         "resource_accessed": "customers.ssn", "data_classification": "Restricted", "success_flag": False,
-         "failure_reason": "Authentication failed"},
-    ])
-
-    data_frames = {
-        "CUSTOMERS":              customers,
-        "EMPLOYEES":              employees,
-        "PRODUCTS":               products,
-        "FINANCIAL_TRANSACTIONS": transactions,
-        "AUDIT_LOGS":             audit_logs,
-    }
-    return metadata_df, data_frames
-
-
 if __name__ == "__main__":
-    import sys
-    mock_mode = "--mock" in sys.argv
-    run_pipeline(use_mock=mock_mode)
+    run_pipeline()
